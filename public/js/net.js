@@ -78,7 +78,7 @@ function apply(){let r;try{r=JSON.parse(G.state)}catch(x){return}
  if(G.lastHumanUid!==uid)UNDO=[];
  S.modal=S.eraNote&&!DISMISSED.has(S.eraNote.key)?{...S.eraNote}:null;
  localVersion=G.version;if(!midAction)resetUI();clearTimeout(botTimer);hideTip();renderNet();render();maybeBot()}
-function stateOut(force){const c=JSON.parse(JSON.stringify(S));delete c.coach;delete c.coachTurn;c.modal=null;c.view=0;if(c.log.length>250)c.log=c.log.slice(-250);
+function stateOut(force){const c=JSON.parse(JSON.stringify(S));delete c.coach;delete c.coachTurn;c.modal=null;c.view=0;if(c.log.length>900)c.log=c.log.slice(-900);
  const lhu=force||(LAST_ACTOR!=null&&isHuman(LAST_ACTOR))?uid:(G?G.lastHumanUid:null);return{state:JSON.stringify(c),lhu}}
 function push(force){if(!ONLINE||!code)return;dirty=true;if(force)forceNext=true;if(saving)return;saving=true;
  (async()=>{while(dirty){dirty=false;const f=forceNext;forceNext=false;const out=stateOut(f);let nv=null;

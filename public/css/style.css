@@ -179,6 +179,18 @@ details p{margin:8px 0;font-size:14px}
 .tip .t-h{margin-top:6px;font-weight:600}
 .tip .t-no{color:var(--warn)}
 .undo{width:100%;margin-bottom:8px}
+.logbox{max-width:640px}
+.logbox .flog-list{max-height:calc(100vh - 140px);margin-top:8px}
+#logov{z-index:8}
+
+.flog{margin:6px 0 0;background:var(--panel);border-radius:8px;padding:6px 10px}
+.flog summary{cursor:pointer;font:600 13.5px "Work Sans",sans-serif;min-height:30px;display:flex;align-items:center;gap:6px}
+.flog-list{list-style:none;margin:6px 0 4px;padding:0;max-height:45vh;overflow-y:auto;font-size:13px;color:var(--muted)}
+.flog-list li{padding:3px 2px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent);display:flex;gap:8px}
+.flog-list .n{flex:none;width:28px;text-align:right;color:var(--line);font-variant-numeric:tabular-nums}
+.flog-list li.round{color:var(--ink);font-weight:600;background:color-mix(in srgb,var(--brass) 10%,transparent)}
+.flog-list li.era{color:var(--ink);font-weight:700;background:color-mix(in srgb,var(--brass) 22%,transparent)}
+
 .bottag{font:600 10.5px "Work Sans",sans-serif;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:2px}
 .tpos{display:inline-block;font:600 11px "Work Sans",sans-serif;color:var(--muted);background:var(--ground);border-radius:4px;padding:1px 5px;margin-right:6px;vertical-align:2px}
 :root{--pc0:#1F5FFF;--pc1:#E3262E;--pc2:#FF8A00;--pc3:#D6249F}
