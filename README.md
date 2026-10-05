@@ -39,6 +39,10 @@ The home screen also has **Play offline on this device**: you against bots, or p
 
 There's no build step: the files in `public/` are served as they are.
 
+## What's changed
+
+See [CHANGELOG.md](CHANGELOG.md) for everything added, changed and fixed.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: open an issue, make a branch, open a pull request, check the preview link, get a review, merge. Merging to `main` publishes to the live site automatically.

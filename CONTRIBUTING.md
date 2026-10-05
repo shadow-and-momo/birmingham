@@ -8,6 +8,7 @@ Thanks for helping make the game better. Here's how changes get from an idea to 
 2. **Make a branch** from `main`, named for what you're doing, like `fix-farm-brewery` or `add-nudge`.
 3. **Make your change** and run `npm test`.
 4. **Open a pull request** into `main` and fill in the template. Mention the issue ("Fixes #12").
+   Add a line for your change under **Unreleased** in `CHANGELOG.md`.
 5. **Try the preview.** Firebase posts a preview link on your pull request within a few minutes. Play a few turns on it to make sure it works.
 6. **Get a review.** At least one other person approves before merging.
 7. **Merge.** The site updates automatically a few minutes later.
