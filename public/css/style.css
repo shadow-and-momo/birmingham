@@ -179,6 +179,39 @@ details p{margin:8px 0;font-size:14px}
 .tip .t-h{margin-top:6px;font-weight:600}
 .tip .t-no{color:var(--warn)}
 .undo{width:100%;margin-bottom:8px}
+.undo.timed{position:relative;overflow:hidden;border-color:var(--brass)}
+.usecs{font-weight:700;color:var(--brass);margin-left:4px}
+.ubar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--brass);transform-origin:left;animation:ubar linear forwards}
+@keyframes ubar{from{transform:scaleX(var(--s,1))}to{transform:scaleX(0)}}
+/* space map */
+.theme-space{--pg-water:#4FE3FF;--pg-soot:#E6ECFF;--pg-cream:#141C3D;--pg-red:#6E2CF2}
+.mapbox:has(.theme-space){background:#0A0E26}
+.st{fill:#fff;opacity:.75}.st.tw{animation:tw 3.2s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+.belt{fill:none;stroke:#B9B2D9;stroke-width:5;stroke-dasharray:1 7;stroke-linecap:round;opacity:.35}
+.ring{fill:none;stroke:#E8C9A0;stroke-width:3;opacity:.55}.ring.front{opacity:.9}
+.orbit{fill:none;stroke:#4FE3FF;stroke-width:.8;stroke-dasharray:2 3;opacity:.35}
+.moon{fill:#8E9BC9}
+.theme-space .banner{fill:#0A0E26;stroke:#4FE3FF;stroke-width:.8}
+.theme-space .tname{font:600 7.4px Oswald,"Arial Narrow",sans-serif;letter-spacing:.1em;fill:#E6ECFF}
+.theme-space .plaque{stroke:#E6ECFF;stroke-width:.8}.theme-space .ptext{fill:#fff}
+.theme-space .slot{stroke-dasharray:2 2;opacity:1}
+.theme-space .ghost{opacity:.55}
+.theme-space .lk.canal{stroke:#4FE3FF;stroke-width:2.2;stroke-dasharray:4 4;filter:drop-shadow(0 0 2px #4FE3FF)}
+.theme-space .lk.ties{display:none}
+.theme-space .lk.rail{stroke:#FF5CD6;stroke-width:2;filter:drop-shadow(0 0 2px #FF5CD6)}
+.theme-space .lk.off{stroke:#8E9BC9;opacity:.25}
+.theme-space .lk.bank{stroke:#4FE3FF;stroke-width:8;opacity:.5}
+.theme-space .lk.core{stroke-width:4}
+.theme-space .lk.shim{stroke:#fff}
+.theme-space .lk.rties{stroke:#FF5CD6;stroke-width:8;stroke-dasharray:none;opacity:.35}
+.theme-space .lk.rcore{stroke-width:3.4}
+.theme-space .lk.trail{stroke:#fff;opacity:.7}
+.theme-space .puff{fill:#7DF9FF}
+.theme-space .mbox{fill:#141C3D;stroke:#E6ECFF}.theme-space .mico{color:#E6ECFF}.theme-space .anyt{fill:#E6ECFF}.theme-space .blankln{stroke:#E6ECFF}
+@media (prefers-reduced-motion:reduce){.st.tw{animation:none}}
+.setsel button.on{background:var(--you);color:#fff;border-color:var(--you)}
+
 .modal.fin{background:rgba(20,16,10,.62);overflow:hidden}
 .fbox{position:relative;max-width:460px;text-align:center;padding:30px 20px 18px;border:3px solid #2B2724;box-shadow:0 0 0 6px #E9A63B,0 14px 40px rgba(0,0,0,.35)}
 .fribbon{position:absolute;top:-17px;left:50%;transform:translateX(-50%);background:#BF3B2B;color:#F3E9D2;font:600 13px Oswald,"Arial Narrow",sans-serif;letter-spacing:.14em;text-transform:uppercase;padding:6px 18px;border:2px solid #F3E9D2;border-radius:3px;white-space:nowrap}

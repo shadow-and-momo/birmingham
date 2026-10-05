@@ -17,9 +17,12 @@ The home screen also has **Play offline on this device**: you against bots, or p
 ### Handy features
 
 - **Tile values** (top left) opens a chart of every tile: cost, what it needs, and what it's worth once flipped (VP, income, link points), with how many you have left.
-- **Map style** switches between Poster, Survey map, Blueprint and Transit looks. It's a personal setting and doesn't affect other players.
+- **Setting** switches between Classic and **Space** ("Brass: Belt"): the same game with sci-fi names, icons and a deep-space map. Freight lanes and hyperlanes replace canals and rails, helium-3, alloy and food replace coal, iron and beer, and every count, cost and connection is unchanged.
+- **Map style** switches between Poster, Survey map, Blueprint, Transit and Deep space looks.
+- Setting and map style are personal choices and don't affect other players.
 - Hover (or tap) a town, merchant or route on the map to see what's there, what it scores, and what you can build.
 - After tapping **Build**, tap a highlighted town to build there.
+- **Bot strength** (chosen when setting up a game): **Devious** bots look ahead at their next moves and a likely reply, and play to beat whoever is leading; **Normal** bots play a simpler game for learning. Hint uses the same look-ahead.
 - The coach gives short tips on your turn, and a polite nudge appears if a turn has gone two minutes without a move.
 
 ## How the code is organised
