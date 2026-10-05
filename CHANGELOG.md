@@ -5,6 +5,8 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Market display**: the coal and iron markets are shown as two rows of dots (black for coal, orange for iron) with prices underneath. Bought cubes leave an empty outline, taken from left to right, and sold cubes fill back in.
+- **Coach and hints as a start-of-game choice.** Off by default; turn them on in the New game screen, or the host turns them on in the online lobby. Locked once the game starts.
 - **Space setting ("Brass: Belt").** A Classic/Space choice that renames everything with a sci-fi theme (freight lanes and hyperlanes, helium-3, alloy and food, credits), swaps in new industry icons, and adds a Deep space map style. Rules, counts, costs and connections are unchanged. Each player picks their own setting.
 - **Devious bots.** Bots look ahead at their next two actions and the next player's likely reply, and play to beat whoever is leading. They don't see other players' hands. Bot strength (Devious or Normal) is chosen at setup, or by the host in the online lobby.
 - **Final standings screen.** Everyone ranked from winner down with medals, canal and rail era scores, bonuses, income and cash; ties broken by income, then cash. Includes **View the board** and **Show final standings**.
@@ -27,6 +29,9 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Automated tests for full 2-, 3- and 4-player games, the card deck and the player mats.
 
 ### Changed
+- **New game** (or **Lobby** / **Leave** online) moved to the bottom of the left column; the Tile values button left the header (the chart opens from **All tile values** beside Your next tiles).
+- **Your actions** heading above the action buttons, and subtle grooved dividers between the markets, spending, game log and settings in the left column, and between your actions, hand and next tiles in the right column.
+- **Layout**: on wide screens the map key sits in the right column above the rules, and the latest moves and full game log link sit in the left column above the Setting and Map style controls.
 - **Full player mats.** Each player now has the real 45 tiles, with counts, costs, VP, income, link points, beer and resource output checked against the physical player mat.
 - **Official card deck** for each player count, from the card distribution card (40, 54 and 64 cards; 10, 9 and 8 rounds per era).
 - **Poster map** redesigned in a bold print style: rounded shapes, light dot texture on the dark green, offset shadows, tree shadows and slowly turning sun rays. Open canal routes are brighter.

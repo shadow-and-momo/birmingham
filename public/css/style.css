@@ -33,7 +33,7 @@ h2{font-family:Bitter,Georgia,serif;font-weight:500;font-size:16px;margin:14px 0
 .setup button{flex:1;font-size:16px}
 .pl .nm{font-family:Bitter,Georgia,serif;font-size:15px}
 .pl .big{font-size:17px;font-weight:600}
-.mkts{grid-column:1/-1;font-size:13px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.mkts{grid-column:1/-1;font-size:13px;color:var(--muted);display:flex;gap:2px 16px;flex-wrap:wrap}
 .mapbox{background:var(--map);border-radius:10px;overflow:hidden}
 svg{display:block;width:100%;height:auto}
 .latest{font-size:13px;margin:8px 0 0;padding:0 0 0 2px;list-style:none;color:var(--muted)}
@@ -179,6 +179,27 @@ details p{margin:8px 0;font-size:14px}
 .tip .t-h{margin-top:6px;font-weight:600}
 .tip .t-no{color:var(--warn)}
 .undo{width:100%;margin-bottom:8px}
+.mblock{width:100%;margin:2px 0 4px}
+.mhead{font-size:13px;color:var(--ink);font-weight:600}.mnext{font-weight:400;color:var(--muted)}
+.mdots{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,14px);gap:4px;margin-top:4px}
+.md{width:14px;height:14px;border-radius:50%;border:1px solid;background:transparent;box-sizing:border-box;opacity:.5}
+.md.full{opacity:1;border-width:0}
+.md.coal{border-color:#3a3a3a}.md.iron{border-color:#C9631A}
+.md.coal.full{background:radial-gradient(circle at 35% 30%,#7a7a7a 0,#2a2a2a 45%,#0d0d0d 100%)}
+.md.iron.full{background:radial-gradient(circle at 35% 30%,#FFC28A 0,#E8822C 45%,#B4560F 100%)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .md.coal{border-color:#AEB5AF}:root:not([data-theme="light"]) .md.coal.full{box-shadow:0 0 0 1px #6F7772}}
+:root[data-theme="dark"] .md.coal{border-color:#AEB5AF}:root[data-theme="dark"] .md.coal.full{box-shadow:0 0 0 1px #6F7772}
+.mprices{display:grid;gap:4px;margin-top:2px;font-size:10px;color:var(--muted);text-align:center}
+
+.groove{border:0;height:0;margin:10px 0;width:100%;flex-basis:100%;border-top:1px solid rgba(0,0,0,.16);border-bottom:1px solid rgba(255,255,255,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}}
+:root[data-theme="dark"] .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}
+.acts-h{margin-top:4px}
+.newgame{width:100%;margin:2px 0 8px}
+#controls .groove{margin:14px 0 4px}
+#controls .groove+h2{margin-top:8px}
+.logbox-left{margin-top:0}.logbox-left .latest{margin-top:0}
+@media (min-width:900px){.right .legend{margin-top:14px;background:var(--panel);border-radius:8px;padding:8px 10px}}
 .logbox{max-width:640px}
 .logbox .flog-list{max-height:calc(100vh - 140px);margin-top:8px}
 #logov{z-index:8}
