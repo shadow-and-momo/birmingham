@@ -11,23 +11,29 @@
 <body>
 <div class="wrap">
  <div class="left">
-  <div class="top"><h1 id="gtitle">Brass Birmingham</h1><span style="display:flex;gap:6px"><button type="button" data-act="openChart" style="min-height:34px;padding:4px 10px;font-size:13px">Tile values</button><button type="button" data-act="restart" style="min-height:34px;padding:4px 10px;font-size:13px">New game</button></span></div>
+  <div class="top"><h1 id="gtitle">Brass Birmingham</h1></div>
   <div id="net"></div>
   <div id="status"></div>
+  <hr class="groove">
+  <div class="logbox-left">
+  <ul class="latest" id="latest"></ul>
+  <div id="fulllog"></div>
+  </div>
+  <hr class="groove">
   <div id="styleSel"></div>
-  <div class="legend wide-only" id="legend2"></div>
+  <hr class="groove">
+  <button type="button" class="newgame" data-act="restart">New game</button>
  </div>
  <div class="center">
   <div class="mapbox" id="map"></div>
   <div class="legend narrow-only" id="legend"></div>
  </div>
  <div class="right">
-  <ul class="latest" id="latest"></ul>
-  <div id="fulllog"></div>
   <div id="nudge"></div>
   <div class="coach" id="coach"></div>
   <div id="undo"></div>
   <div id="controls"></div>
+  <div class="legend wide-only" id="legend2"></div>
   <details>
     <summary>Quick rules</summary>
     <p>Play with 2 to 4 players, any mix of people (passing the device) and bots: a canal era, then a rail era. Each turn you spend one card per action, two actions a turn (only one in the very first round). The era ends when the deck and every hand are empty.</p>

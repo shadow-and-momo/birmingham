@@ -1,6 +1,6 @@
 /* Game engine and display: turns, actions, scoring, bots, coach, map drawing
    and controls. Loaded after data.js and shares its globals. */
-let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1,bot:'devious',colors:['#1F5FFF']};
+let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1,bot:'devious',colors:['#1F5FFF'],coach:false};
 
 const $=id=>document.getElementById(id);
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -440,6 +440,11 @@ function buildWhy(pi,card){const all=allBuilds(pi,card);const netR=all.filter(b=
 function topReasons(list){const c={};list.forEach(r=>{if(r)c[r]=(c[r]||0)+1});const skip=['Wrong industry for that card.','Every matching space there is taken.','Already built.','That route is rail only.','That route is canal only.'];
  let keys=Object.keys(c).sort((a,b)=>c[b]-c[a]);const good=keys.filter(k=>!skip.includes(k));return(good.length?good:keys).slice(V(),2)}
 
+function mktBlock(k){const P=PRICES[k],n=P.length,c=S.mkt[k],cols=n/2;
+ const dots=P.map((pr,i)=>`<span class="md ${k}${i>=n-c?' full':''}" title="£${pr}"></span>`).join('');
+ const prices=Array.from({length:cols},(_,j)=>`<span>£${P[j*2]}</span>`).join('');
+ const next=c>0?`next £${mktCost(k,1)}`:`empty, £${FALL[k]} each`;
+ return`<div class="mblock"><div class="mhead">${k==='coal'?'Coal':'Iron'} market <span class="mnext">${c} left · ${next}</span></div><div class="mdots" style="grid-template-columns:repeat(${cols},14px)" role="img" aria-label="${k} market: ${c} of ${n} cubes left">${dots}</div><div class="mprices" style="grid-template-columns:repeat(${cols},14px)">${prices}</div></div>`}
 function renderStatus(){const me=isHuman(cur());
  const turn=S.over?'Game over':me?`${(ONLINE?cur()===V():S.humans===1)?'Your':WHO(cur())+"'s"} turn: ${S.actionsLeft} action${S.actionsLeft>1?'s':''} left`:`${WHO(cur())} is taking its turn`;
  const mp=k=>S.mkt[k]>0?`£${mktCost(k,1)} (${S.mkt[k]} left)`:`£${FALL[k]} (empty)`;
@@ -447,7 +452,7 @@ function renderStatus(){const me=isHuman(cur());
  <div class="turn ${S.over?'':me?'you':'bot'}">${turn}</div>
  <div class="stats">
   ${S.order.map((i,k)=>[S.players[i],i,k]).map(([p,i,k])=>`<div class="pl c${i}${!S.over&&cur()===i?' now':''}"><div class="nm"><span class="tpos" title="Turn order this round">${["1st","2nd","3rd","4th"][k]}</span>${esc(p.name)}${isHuman(i)?'':' <span class="bottag">bot</span>'}</div><span class="big">£${p.money}</span> cash<br>Income £${incOf(p)}/round (space ${p.pos})<br>${p.vp} VP banked${p.loans?`, ${p.loans} loan${p.loans>1?'s':''}`:''}${isHuman(i)?'':`, ${p.hand.length} cards`}</div>`).join('')}
-  <div class="mkts"><span>Coal market: ${mp('coal')}</span><span>Iron market: ${mp('iron')}</span><span>Spent this round: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${S.spent[i]}`).join(', ')}</span></div>
+  <div class="mkts">${mktBlock('coal')}${mktBlock('iron')}<hr class="groove"><span>Spent this round: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${S.spent[i]}`).join(', ')}</span></div>
  </div>`}
 function cardIcons(c){if(c.t==='ind')return(c.k==='cg'?['cotton','goods']:[c.k]).map(k=>`<svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>`).join('');return''}
 function townIcons(c){if(c.t!=='loc')return'';const inds=[...new Set(TOWNS[c.k].slots.flat())];const ok=new Set(allBuilds(V(),c).filter(b=>b.ok).map(b=>b.ind));
@@ -468,12 +473,12 @@ function matHTML(){const p=S.players[V()];return`<table class="mat">${Object.key
 function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=null;
  if(S.over){const online=typeof ONLINE!=="undefined"&&ONLINE;el.innerHTML=`<p class="step"><b>Game over.</b> The board stays as it ended.</p><div class="row"><button type="button" class="primary" data-act="showResults">Show final standings</button>${online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>'}</div>`;return}
  const p=S.players[V()];
- if(cur()!==V()){el.innerHTML=`<h2>Your hand</h2>${handHTML(false)}<h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
+ if(cur()!==V()){el.innerHTML=`<h2>Your hand</h2>${handHTML(false)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
  const M=UI.mode;let h='';
- if(!M){h+=`<div class="acts">
+ if(!M){h+=`<h2 class="acts-h">Your actions</h2><div class="acts">
   <button type="button" data-act="mode" data-m="build">Build</button><button type="button" data-act="mode" data-m="link">Link</button><button type="button" data-act="mode" data-m="sell">Sell</button><button type="button" data-act="mode" data-m="loan">Loan</button>
-  <button type="button" data-act="mode" data-m="develop">Develop</button><button type="button" data-act="mode" data-m="scout">Scout</button><button type="button" data-act="mode" data-m="pass">Pass</button><button type="button" data-act="hint">Hint</button></div>
-  ${UI.note?`<p class="why">${esc(UI.note)}</p>`:''}<h2>Your hand</h2>${handHTML(true)}<h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;el.innerHTML=h;return}
+  <button type="button" data-act="mode" data-m="develop">Develop</button><button type="button" data-act="mode" data-m="scout">Scout</button><button type="button" data-act="mode" data-m="pass">Pass</button>${coachOn()?'<button type="button" data-act="hint">Hint</button>':''}</div>
+  ${UI.note?`<p class="why">${esc(UI.note)}</p>`:''}<hr class="groove"><h2>Your hand</h2>${handHTML(true)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;el.innerHTML=h;return}
  const names={dev2:'Develop a second tile?',build:'Build',link:'Link',link2:'Second rail',sell:'Sell',loan:'Loan',develop:'Develop',scout:'Scout',pass:'Pass'};
  h+=`<h2>${names[M]}</h2>`;
  if(UI.beerPick&&(M==='link2'||M==='sell')){const bp=UI.beerPick;const what=bp.kind==='link2'?`your second rail, ${esc(nodeName(bp.e.l.a))} to ${esc(nodeName(bp.e.l.b))}`:`selling the ${lower(bp.e.t.ind)} in ${esc(TOWNS[bp.e.t.town].n)}`;
@@ -521,14 +526,14 @@ function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=n
  h+=`<div class="row">${UI.sold?`<button type="button" class="primary" data-act="finishSell">Finish selling</button>`:`<button type="button" data-act="cancel">Back</button>`}</div>`;
  el.innerHTML=h}
 let TURN_KEY='',TURN_T=Date.now(),NUDGED=false,NUDGE_DISMISSED=false;const BASE_TITLE=document.title;
-const NUDGE_LINES=[n=>`No rush${n}. It's your move whenever you're ready.`,n=>`Still mulling it over${n}? Take your time. Hint is there if you'd like a suggestion.`,n=>`Just a gentle reminder${n}: the table is waiting on your move.`];
+const NUDGE_LINES=[n=>`No rush${n}. It's your move whenever you're ready.`,n=>`Still mulling it over${n}? Take your time.${coachOn()?" Hint is there if you'd like a suggestion.":''}`,n=>`Just a gentle reminder${n}: the table is waiting on your move.`];
 function nudgeCheck(){if(!S||S.over||S.modal||!isHuman(cur())||(ONLINE&&cur()!==V())){if(NUDGED){NUDGED=false;renderNudge()}return}
  const key=S.turnSerial+'-'+S.actionsLeft+'-'+cur();if(key!==TURN_KEY){TURN_KEY=key;TURN_T=Date.now();NUDGED=false;NUDGE_DISMISSED=false;renderNudge();return}
  if(!NUDGED&&!NUDGE_DISMISSED&&Date.now()-TURN_T>=120000){NUDGED=true;renderNudge()}}
 function renderNudge(){const el=document.getElementById('nudge');if(!el)return;
  if(!NUDGED||NUDGE_DISMISSED){el.innerHTML='';document.title=BASE_TITLE;return}
  const pi=cur(),n=S.humans>1||(typeof ONLINE!=='undefined'&&ONLINE)?', '+S.players[pi].name:'';const line=NUDGE_LINES[S.turnSerial%NUDGE_LINES.length](n);
- el.innerHTML=`<div class="nudge" role="status"><span class="nudge-ic" aria-hidden="true">☕</span><span class="nudge-t">${esc(line)}</span><span class="nudge-b"><button type="button" data-act="hint">Hint</button><button type="button" data-act="dismissNudge">Thanks</button></span></div>`;document.title='• Your move · '+BASE_TITLE}
+ el.innerHTML=`<div class="nudge" role="status"><span class="nudge-ic" aria-hidden="true">☕</span><span class="nudge-t">${esc(line)}</span><span class="nudge-b">${coachOn()?'<button type="button" data-act="hint">Hint</button>':''}<button type="button" data-act="dismissNudge">Thanks</button></span></div>`;document.title='• Your move · '+BASE_TITLE}
 setInterval(nudgeCheck,5000);
 const CHART={open:false,tab:'all',sort:'level'};
 const HOW={coal:'Flips when its last coal is used, by anyone.',iron:'Flips when its last iron is used, by anyone.',brewery:'Flips when its last beer is used. Makes 1 beer in the canal era, 2 in the rail era.',cotton:'Flips when you sell it.',goods:'Flips when you sell it.',pottery:'Flips when you sell it.'};
@@ -580,20 +585,21 @@ function setupColourRows(){fixSetupColours();return SETUP.colors.map((mine,k)=>`
 function applyColours(){if(!document.documentElement)return;const r=document.documentElement.style;for(let i=0;i<4;i++){const c=S&&S.colors&&S.colors[i];if(c)r.setProperty('--pc'+i,c);else r.removeProperty('--pc'+i)}}
 let LOGOPEN=false;
 function renderFullLog(){const el=document.getElementById('fulllog');if(!el||typeof el.querySelector!=='function')return;
- el.innerHTML=`<button type="button" class="linkbtn" data-act="openLog">View full game log (${S.log.length} entries)</button>`;if(LOGOPEN)renderLogModal()}
+ el.innerHTML=`<button type="button" class="linkbtn" data-act="openLog">View full game log (${S.log.length} ${S.log.length===1?'entry':'entries'})</button>`;if(LOGOPEN)renderLogModal()}
 function renderLogModal(){const ov=document.getElementById('logov');if(!ov)return;if(!LOGOPEN){ov.hidden=true;ov.innerHTML='';return}
  const old=ov.querySelector('.flog-list'),atBottom=!old||old.scrollTop+old.clientHeight>=old.scrollHeight-8,prevTop=old?old.scrollTop:0;
  const rows=S.log.map((t,i)=>{const cls=/^(Canal|Rail) era (begins|scored)/.test(t)?'era':/^Round \d+ over/.test(t)?'round':'';return`<li class="${cls}"><span class="n">${i+1}</span>${esc(t)}</li>`}).join('');
- ov.hidden=false;ov.innerHTML=`<div class="ch-box logbox" role="dialog" aria-modal="true" aria-label="Full game log"><div class="ch-top"><h2>Full game log <span class="sub" style="font-size:14px">(${S.log.length} entries)</span></h2><button type="button" data-act="closeLog">Close</button></div><ol class="flog-list">${rows}</ol></div>`;
+ ov.hidden=false;ov.innerHTML=`<div class="ch-box logbox" role="dialog" aria-modal="true" aria-label="Full game log"><div class="ch-top"><h2>Full game log <span class="sub" style="font-size:14px">(${S.log.length} ${S.log.length===1?'entry':'entries'})</span></h2><button type="button" data-act="closeLog">Close</button></div><ol class="flog-list">${rows}</ol></div>`;
  if(typeof skinDOM==='function')skinDOM(ov);const l=ov.querySelector('.flog-list');l.scrollTop=(!old||atBottom)?l.scrollHeight:prevTop}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&LOGOPEN){LOGOPEN=false;renderLogModal()}});
+function coachOn(){return!!(S&&S.coachOn)}
 function render(){applyColours();renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
 function renderCore(){const ss=document.getElementById('styleSel');const me=V(),myC=S.colors?S.colors[me]:null,canPick=S.colors&&me>=0&&me<S.players.length&&isHuman(me);if(ss)ss.innerHTML=`<div class="stylesel setsel"><span>Setting</span><button type="button" class="${SETTING==='classic'?'on':''}" data-act="setSetting" data-v="classic">Classic</button><button type="button" class="${SETTING==='space'?'on':''}" data-act="setSetting" data-v="space">Space</button></div><div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
  nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
  $('latest').innerHTML=S.log.slice(-4).reverse().map(t=>`<li>${esc(t)}</li>`).join('');renderFullLog();
- $('coach').innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`;
+ {const cb=$('coach');if(coachOn()){cb.hidden=false;cb.innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`}else{cb.hidden=true;cb.innerHTML=''}}
  if(S.modal&&S.modal.handoff!==undefined){$('modal').innerHTML=`<div class="modal solid"><div class="box" role="dialog" aria-modal="true"><h2>${esc(WHO(S.modal.handoff))}, you're up</h2><p>Pass the device to ${esc(WHO(S.modal.handoff))}. Your hand stays hidden until you tap below.</p><div class="row"><button type="button" class="primary" data-act="takeTurn">Show my hand</button></div></div></div>`;return}
- if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">${SETUP.h>1?'Colours':'Your colour'}</p>${setupColourRows()}<p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
+ if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">${SETUP.h>1?'Colours':'Your colour'}</p>${setupColourRows()}<p style="margin-top:12px">Coach and hints</p><div class="row setup"><button type="button" class="${SETUP.coach?'primary':''}" data-act="selCoach" data-v="on">On</button><button type="button" class="${SETUP.coach?'':'primary'}" data-act="selCoach" data-v="off">Off</button></div><p class="sub" style="margin:4px 0 0">Tips on your turn and the Hint button. This can't be changed once the game starts.</p><p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
  if(S.modal&&S.modal.final){$('modal').innerHTML=finalHTML();return}
  $('modal').innerHTML=S.modal?`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>${esc(S.modal.title)}</h2>${S.modal.lines.map(l=>`<p>${esc(l)}</p>`).join('')}<div class="row"><button type="button" class="primary" data-act="closeModal">${esc(S.modal.btn)}</button></div></div></div>`:''}
 
@@ -664,14 +670,15 @@ const H={
  openLog(){LOGOPEN=true;hideTip();renderLogModal()},
  closeLog(){LOGOPEN=false;renderLogModal()},
  undo(){if(!UNDO.length)return;if(UNDO_DEADLINE&&Date.now()>=UNDO_DEADLINE){UNDO=[];UNDO_DEADLINE=0;renderUndo();return}UNDO_DEADLINE=0;clearTimeout(botTimer);S=JSON.parse(UNDO.pop());resetUI();S.coach='Move undone.';hideTip();if(ONLINE){S.modal=null;NET.push(true)}render();maybeBot()},
- hint(){let c;try{const i=searchBotAction(V());c=candidates(V(),true)[i]}catch(x){c=candidates(V())[0]}S.coach=`Suggestion: ${c.desc}.`;render()},
+ hint(){if(!coachOn())return;let c;try{const i=searchBotAction(V());c=candidates(V(),true)[i]}catch(x){c=candidates(V())[0]}S.coach=`Suggestion: ${c.desc}.`;render()},
  closeModal(){if(ONLINE){if(S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render();maybeBot();return}if(S.over){S.modal={setup:true};render();return}S.modal=null;render();maybeBot()},
  restart(){if(ONLINE){NET.toLobby();return}clearTimeout(botTimer);S.prevModal=S.modal;S.modal={setup:true,canCancel:!S.over&&S.started};render()},
  selN(el){SETUP.n=+el.dataset.n;SETUP.h=Math.min(SETUP.h,SETUP.n);render()},
  selH(el){SETUP.h=+el.dataset.n;render()},
  pickCol(el){fixSetupColours();const k=+el.dataset.k,c=el.dataset.c,o=SETUP.colors.indexOf(c);if(o>=0&&o!==k)SETUP.colors[o]=SETUP.colors[k];SETUP.colors[k]=c;render()},
- start(){newGame(SETUP.n,SETUP.h);S.botLevel=SETUP.bot;fixSetupColours();{const mine=SETUP.colors.slice(0,SETUP.h),rest=COLOURS.map(x=>x[1]).filter(c=>!mine.includes(c));S.colors=mine.concat(rest).slice(0,S.players.length);render()}S.started=true},
+ start(){newGame(SETUP.n,SETUP.h);S.botLevel=SETUP.bot;S.coachOn=SETUP.coach;fixSetupColours();{const mine=SETUP.colors.slice(0,SETUP.h),rest=COLOURS.map(x=>x[1]).filter(c=>!mine.includes(c));S.colors=mine.concat(rest).slice(0,S.players.length);render()}S.started=true},
  selBot(el){SETUP.bot=el.dataset.v;render()},
+ selCoach(el){SETUP.coach=el.dataset.v==='on';render()},
  takeTurn(){S.view=S.modal.handoff;S.modal=null;resetUI();render()},
  cancelSetup(){S.modal=S.prevModal||null;render();maybeBot()}
 };
