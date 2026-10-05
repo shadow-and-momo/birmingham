@@ -23,7 +23,7 @@ const setName=n=>{try{localStorage.setItem('bb-name',n)}catch(x){}};
 const gref=()=>doc(db,'games',code);
 function toast(t){const el=document.getElementById('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3500)}
 function link(){return location.origin+location.pathname+'?g='+code}
-function showLobby(html){$W.hidden=true;$L.hidden=false;$L.innerHTML=`<div class="card2">${html}</div>`}
+function showLobby(html){$W.hidden=true;$L.hidden=false;$L.innerHTML=`<div class="card2">${html}</div>`;if(typeof skinDOM==='function')skinDOM($L)}
 
 /* ---------- home ---------- */
 function home(msg){if(unsub){unsub();unsub=null}code=null;G=null;ONLINE=false;clearTimeout(botTimer);history.replaceState(null,'',location.pathname);
@@ -62,11 +62,11 @@ function renderLobby(){const me=mySeat;const seats=G.seats;const humans=seats.fi
  ${me<0?`<h2>Your name</h2><input type="text" id="lb-name" maxlength="20" value="${e(getName())}">`:''}
  ${IS_HOST?`<h2>Players</h2><div class="seg">${[2,3,4].map(n=>`<button type="button" class="${seats.length===n?'on':''}" data-lb="size" data-n="${n}">${n}</button>`).join('')}</div>
  <p class="sub" style="margin-top:12px">Any seat still open when you start becomes a bot. Bots play from your browser, so keep the game open while they take turns.</p>
- <button type="button" class="primary" data-lb="start" style="width:100%;margin-top:8px">Start game</button>`:`<p class="sub" style="margin-top:14px">Waiting for the host to start the game.</p>`}
+ <h2>Bot strength</h2><div class="seg"><button type="button" class="${(G.botLevel||'devious')==='devious'?'on':''}" data-lb="botlvl" data-v="devious">Devious</button><button type="button" class="${G.botLevel==='normal'?'on':''}" data-lb="botlvl" data-v="normal">Normal</button></div><p class="sub" style="margin-top:6px">Devious bots look a few moves ahead and play to beat whoever is leading.</p><button type="button" class="primary" data-lb="start" style="width:100%;margin-top:8px">Start game</button>`:`<p class="sub" style="margin-top:14px">Waiting for the host to start the game.</p>`}
  ${lobbyErr?`<p class="err">${e(lobbyErr)}</p>`:''}`);lobbyErr=''}
 async function seatTx(fn){try{await runTransaction(db,async tx=>{const s=await tx.get(gref());const d=s.data();if(d.status!=='lobby')throw new Error('The game has already started.');const seats=d.seats.map(x=>({...x}));const r=fn(seats,d);if(r)throw new Error(r);tx.update(gref(),{seats,updatedAt:serverTimestamp()})})}catch(err){lobbyErr=err.message;if(G)renderLobby()}}
 async function startGame(){const seats=G.seats.map(s=>s.uid?{...s}:{uid:null,name:'',bot:true});
- const st=startOnline(seats);const out=JSON.parse(JSON.stringify(st));out.coach='';out.modal=null;
+ const st=startOnline(seats);st.botLevel=G.botLevel||'devious';const out=JSON.parse(JSON.stringify(st));out.coach='';out.modal=null;
  try{await runTransaction(db,async tx=>{const s=await tx.get(gref());if(s.data().status!=='lobby')throw new Error('Already started.');tx.update(gref(),{seats,status:'playing',state:JSON.stringify(out),version:1,lastHumanUid:null,updatedAt:serverTimestamp()})});localVersion=0;DISMISSED=new Set()}catch(err){lobbyErr=err.message;renderLobby()}}
 
 /* ---------- sync ---------- */
@@ -103,6 +103,7 @@ document.addEventListener('click',async ev=>{const b=ev.target.closest('[data-lb
  else if(a==='bot')seatTx(seats=>{if(seats[i].uid)return'Someone is sitting there.';seats[i]={uid:null,name:'',bot:!seats[i].bot}});
  else if(a==='size'){const n=+b.dataset.n;seatTx(seats=>{while(seats.length<n)seats.push({uid:null,name:'',bot:false});while(seats.length>n){const last=seats[seats.length-1];if(last.uid)return'Remove the player in the last seat first.';seats.pop()}})}
  else if(a==='start')startGame();
+ else if(a==='botlvl'){if(IS_HOST)await updateDoc(gref(),{botLevel:b.dataset.v,updatedAt:serverTimestamp()})}
  else if(a==='relobby'){await updateDoc(gref(),{status:'lobby',state:null,version:0,lastHumanUid:null,updatedAt:serverTimestamp()})}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.id==='lb-code'){if(needName())join(ev.target.value)}});
 

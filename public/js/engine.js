@@ -1,6 +1,6 @@
 /* Game engine and display: turns, actions, scoring, bots, coach, map drawing
    and controls. Loaded after data.js and shares its globals. */
-let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1};
+let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1,bot:'devious'};
 
 const $=id=>document.getElementById(id);
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -57,15 +57,15 @@ const STATE_VERSION=2;
 function startOnline(seats){ONLINE=true;newGame(seats.length,1);clearTimeout(botTimer);let b=0;
  S.humanSeats=seats.map(s=>!s.bot);S.humans=S.humanSeats.filter(Boolean).length;
  S.players.forEach((p,i)=>p.name=seats[i].bot?(seats.filter(s=>s.bot).length>1?'Bot '+(++b):'Bot'):seats[i].name);
- S.schema=STATE_VERSION;S.order=shuffle(S.order.slice());S.turnIdx=0;startTurnReset();S.modal=null;S.log=[`Canal era begins. ${S.players[S.order[0]].name} goes first.`];S.coach='';return S}
+ S.schema=STATE_VERSION;S.order=shuffle(S.order.slice());S.turnIdx=0;startTurnReset();S.modal=null;S.log=[`Canal era begins. Turn order was drawn at random: ${S.order.map(i=>S.players[i].name).join(', ')}. ${S.players[S.order[0]].name} goes first.`];S.coach='';return S}
 function startTurnReset(){S.actionsLeft=1}
 function newGame(n,hu){n=n||2;hu=Math.min(hu||1,n);clearTimeout(botTimer);UNDO=[];
- S={era:'canal',round:1,humans:hu,view:0,players:Array.from({length:n},(_,i)=>newPlayer(i<hu?(hu===1?'You':'Player '+(i+1)):(n-hu===1?'Bot':'Bot '+(i-hu+1)))),order:Array.from({length:n},(_,i)=>i),turnIdx:0,actionsLeft:1,deck:buildDeck(n),tiles:[],links:[],mkt:{coal:13,iron:8},merchBeer:{},spent:Array(n).fill(0),seen:{},pending:[],turnSerial:0,myTurns:Array(n).fill(0),coachTurn:-1,log:[],over:false,nextId:1,coach:'',modal:null};
+ S={era:'canal',round:1,humans:hu,view:0,players:Array.from({length:n},(_,i)=>newPlayer(i<hu?(hu===1?'You':'Player '+(i+1)):(n-hu===1?'Bot':'Bot '+(i-hu+1)))),order:shuffle(Array.from({length:n},(_,i)=>i)),turnIdx:0,actionsLeft:1,deck:buildDeck(n),tiles:[],links:[],mkt:{coal:13,iron:8},merchBeer:{},spent:Array(n).fill(0),seen:{},pending:[],turnSerial:0,myTurns:Array(n).fill(0),coachTurn:-1,log:[],over:false,nextId:1,coach:'',modal:null};
  dealMerchants(n);
  S.players.forEach(p=>{for(let i=0;i<HAND;i++)p.hand.push(S.deck.pop());S.deck.pop()});
  resetUI();
  
- log(`Canal era begins. ${hu===1?'You go':WHO(0)+' goes'} first.`);render();maybeBot()}
+ log(`Canal era begins. Turn order was drawn at random: ${S.order.map(i=>solo(i)?'you':WHO(i)).join(', ')}. ${solo(S.order[0])?'You go':WHO(S.order[0])+' goes'} first.`);render();maybeBot()}
 
 /* graph */
 function isKW(l){return(l.a==='kidder'&&l.b==='worcester')||(l.a==='worcester'&&l.b==='kidder')}
@@ -196,7 +196,7 @@ function sellAll(pi){let e;let guard=0;while(guard++<10){const list=S.tiles.filt
 
 /* turns */
 function discard(pi,idxs){const p=S.players[pi];[...idxs].sort((a,b)=>b-a).forEach(i=>p.hand.splice(i,1))}
-function afterAction(){LAST_ACTOR=cur();S.actionsLeft--;const p=S.players[cur()];if(S.actionsLeft<=0||p.hand.length===0)endTurn();if(ONLINE&&window.NET)NET.push();render();maybeBot()}
+function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const p=S.players[cur()];if(S.actionsLeft<=0||p.hand.length===0)endTurn();if(isHuman(actor)&&cur()!==actor&&UNDO.length)UNDO_DEADLINE=Date.now()+UNDO_WINDOW;if(ONLINE&&window.NET)NET.push();render();maybeBot()}
 function endTurn(){const p=S.players[cur()];p.hand.forEach(c=>delete c.fresh);while(p.hand.length<HAND&&S.deck.length){const c=S.deck.pop();c.fresh=true;p.hand.push(c)}S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}
 function startTurn(){const p=S.players[cur()];S.turnSerial++;if(isHuman(cur())&&p.hand.length)S.myTurns[cur()]++;S.actionsLeft=(S.era==='canal'&&S.round===1)?1:2;
  if(p.hand.length===0){S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}}
@@ -236,7 +236,7 @@ function routeDist(pi){return S.tiles.filter(t=>t.owner===pi&&!t.flipped&&SELLAB
 function scoreLink(pi,e){const l=e.l;let s=1-e.total*0.15;const r0=routed(pi),d0=routeDist(pi);S.links.push({id:-1,a:l.a,b:l.b,owner:pi});const r1=routed(pi),d1=routeDist(pi);S.links.pop();s+=(r1-r0)*4+(d0-d1)*3.5;
  [l.a,l.b].forEach(n=>{if(MERCH[n]){s+=S.tiles.some(t=>t.owner===pi&&!t.flipped&&acc(n).includes(t.ind))?5:1.5}else{s+=icons(n)*0.35;s+=S.tiles.filter(t=>t.town===n&&t.owner===pi&&!t.flipped&&SELLABLE.includes(t.ind)).length*1.5}});
  if(S.era==='rail')s+=(icons(l.a)+icons(l.b))*0.3;return s}
-function candidates(pi){const p=S.players[pi];const C=[];if(!p.hand.length)return[{score:0,desc:'Pass',run(){}}];
+function candidates(pi,noJitter){const p=S.players[pi];const C=[];if(!p.hand.length)return[{score:0,desc:'Pass',run(){}}];
  const useCount=p.hand.map(c=>allBuilds(pi,c).filter(b=>b.ok).length);const spare=useCount.indexOf(Math.min(...useCount));
  p.hand.forEach((c,ci)=>{dedupe(allBuilds(pi,c).filter(b=>b.ok)).forEach(b=>C.push({score:scoreBuild(pi,b),desc:`build a level ${b.def.l} ${lower(b.ind)} in ${TOWNS[b.town].n} with your "${cardLabel(c)}" card (£${b.total})`,run(){discard(pi,[ci]);execBuild(pi,b)}}))});
  const sells=S.tiles.filter(t=>t.owner===pi&&!t.flipped&&SELLABLE.includes(t.ind)).map(t=>evalSell(pi,t)).filter(e=>e.ok);
@@ -245,9 +245,41 @@ function candidates(pi){const p=S.players[pi];const C=[];if(!p.hand.length)retur
  if(incOf(p)-3>=(!isHuman(pi)?-3:-10)){const early=S.round<=(S.era==='canal'?3:2);C.push({score:p.money<6?5:p.money<10?(early?7:1.5):(early&&p.money<20?2.5:-2),desc:'take a loan for £30',run(){discard(pi,[spare]);execLoan(pi)}})}
  if(S.era==='rail'){const stuck=Object.keys(IND).filter(k=>p.mat[k][0]&&p.mat[k][0].canal);if(stuck.length){const e=evalDevelop(pi,stuck.slice(0,2));if(e.ok)C.push({score:3+stuck.slice(0,2).length,desc:`develop past your ${devLabel(pi,e.inds)}`,run(){discard(pi,[spare]);execDevelop(pi,e)}})}}
  C.push({score:0,desc:'pass',run(){discard(pi,[spare]);log(`${WHO(pi)} passed.`)}});
- if(!isHuman(pi))C.forEach(c=>c.score+=Math.random()*1.2);return C.sort((a,b)=>b.score-a.score)}
+ if(!isHuman(pi)&&!noJitter)C.forEach(c=>c.score+=Math.random()*1.2);return C.sort((a,b)=>b.score-a.score)}
 function maybeBot(){if(S.over||S.modal)return;if(isHuman(cur())){if(ONLINE)return;if(cur()!==S.view){if(S.humans>1){S.modal={handoff:cur()};render()}else S.view=cur()}return}if(ONLINE&&!IS_HOST)return;{clearTimeout(botTimer);botTimer=setTimeout(botAct,900)}}
-function botAct(){if(S.over||S.modal||isHuman(cur()))return;const best=candidates(cur())[0];CM=[];best.run();flushCoach();afterAction()}
+
+/* ---------- Devious bot: looks ahead and plays to beat the leader ---------- */
+const ROUNDS_PER_ERA={2:10,3:9,4:8};
+function roundsLeft(){const per=ROUNDS_PER_ERA[S.players.length]||8;return Math.max(0,per-S.round)+(S.era==='canal'?per:0)}
+function moneyVal(rl){return rl<=0?0.001:Math.min(0.32,0.045*rl+0.02)}
+function projVP(i){const p=S.players[i],canal=S.era==='canal',rl=roundsLeft(),mv=moneyVal(rl);let v=p.vp,incGain=0;
+ for(const t of S.tiles){if(t.owner!==i)continue;const again=canal&&t.def.l!==1?1.75:1;
+  if(t.flipped){v+=t.def.vp*again;continue}
+  if(SELLABLE.includes(t.ind)){const e=evalSell(i,t);let pr;if(e.ok)pr=.9;else{const d=bfs([t.town]);pr=Object.keys(MERCH).some(m=>d[m]!==undefined&&acc(m).includes(t.ind))?.5:.2}
+   v+=t.def.vp*pr*again;incGain+=t.def.inc*pr}
+  else if(t.cubes){let pr;if(t.ind==='brewery'){const want=S.tiles.filter(g=>!g.flipped&&SELLABLE.includes(g.ind)).length;pr=Math.min(.75,.2+.12*want)/Math.max(1,t.cubes)}else pr=(t.ind==='coal'?.4:.55)/Math.max(1,t.cubes/2);v+=t.def.vp*pr*again;incGain+=t.def.inc*pr}}
+ const pend=n=>S.tiles.filter(t=>t.town===n&&!t.flipped).reduce((s,t)=>s+t.def.lk,0);
+ for(const l of S.links)if(l.owner===i)v+=icons(l.a)+icons(l.b)+.35*(pend(l.a)+pend(l.b));
+ const inc=lvl(p.pos+incGain*.5);v+=(p.money+inc*rl)*mv;
+ if(inc<0)v+=inc*rl*.6;
+ return v}
+function utility(pi){const pv=S.players.map((p,i)=>projVP(i));const others=pv.filter((x,i)=>i!==pi);if(!others.length)return pv[pi];
+ const mx=Math.max(...others),avg=others.reduce((a,b)=>a+b,0)/others.length;return pv[pi]-(0.7*mx+0.3*avg)}
+function quiet(fn){const sL=S.log,sCM=CM;try{return fn()}finally{CM=sCM}}
+function searchBotAction(pi){const t0=Date.now(),root=structuredClone(S),realCM=CM;let bestI=0,bestV=-1e9;
+ const K1=14,K2=8,np=S.order[(S.turnIdx+1)%S.order.length];
+ try{S=structuredClone(root);const C1=candidates(pi,true).slice(0,K1);
+  for(let i=0;i<C1.length;i++){if(Date.now()-t0>2200)break;
+   S=structuredClone(root);CM=[];candidates(pi,true)[i].run();S.actionsLeft--;
+   const after1=structuredClone(S);let val;
+   const reply=()=>{if(np!==pi&&S.players[np]){const op=S.players[np];op.hand=[{t:'wind'},{t:'wloc'}];CM=[];const R=candidates(np,true);if(R[0])R[0].run()}return utility(pi)};
+   if(S.actionsLeft>0&&S.players[pi].hand.length){let b2=-1e9;const C2n=Math.min(K2,candidates(pi,true).length);
+    for(let j=0;j<C2n;j++){if(Date.now()-t0>2200&&j>0)break;S=structuredClone(after1);CM=[];candidates(pi,true)[j].run();b2=Math.max(b2,reply())}val=b2}
+   else{S=after1;val=reply()}
+   if(val>bestV){bestV=val;bestI=i}}}
+ finally{S=root;CM=realCM}
+ return bestI}
+function botAct(){if(S.over||S.modal||isHuman(cur()))return;const pi=cur();let best;if((S.botLevel||'devious')==='devious'){const i=searchBotAction(pi);best=candidates(pi,true)[i]}else best=candidates(pi)[0];CM=[];best.run();flushCoach();afterAction()}
 
 /* rendering */
 const T=24,STEP=27;
@@ -263,6 +295,47 @@ const DEFS=`<defs>
 <radialGradient id="vign" cx=".5" cy=".5" r=".75"><stop offset=".6" stop-color="#6b4a22" stop-opacity="0"/><stop offset="1" stop-color="#6b4a22" stop-opacity=".35"/></radialGradient><pattern id="bpgrid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width=".6"/></pattern><pattern id="bpgrid2" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width=".8"/></pattern><radialGradient id="glowg"><stop offset="0" stop-color="#FFC24A" stop-opacity=".95"/><stop offset=".55" stop-color="#F29A2E" stop-opacity=".45"/><stop offset="1" stop-color="#F29A2E" stop-opacity="0"/></radialGradient>
 </defs>`;
 const RES_COL={coal:'#2E2E2E',iron:'#B5652A',brewery:'#C08A1E'};
+/* ---------- Space setting: same game, new names and look ---------- */
+let SETTING=(()=>{try{return localStorage.getItem('bb-setting')||'classic'}catch(x){return'classic'}})();
+const SPACE_WORDS={
+ 'Brass Birmingham':'Brass: Belt','Brass trainer':'Brass: Belt trainer',
+ 'North farm brewery':'North greenhouse dome','South farm brewery':'South greenhouse dome','Farm breweries':'Greenhouse domes','farm breweries':'greenhouse domes','Farm brewery':'Greenhouse dome','farm brewery':'greenhouse dome',
+ 'Coal mines':'Helium-3 extractors','coal mines':'helium-3 extractors','Coal mine':'Helium-3 extractor','coal mine':'helium-3 extractor',
+ 'Ironworks':'Alloy foundry','ironworks':'alloy foundry','Iron works':'Alloy foundry',
+ 'Breweries':'Hydroponics farms','breweries':'hydroponics farms','Brewery':'Hydroponics farm','brewery':'hydroponics farm',
+ 'Cotton mills':'Nanofiber mills','cotton mills':'nanofiber mills','Cotton mill':'Nanofiber mill','cotton mill':'nanofiber mill',
+ 'Cotton / Manufacturer':'Nanofiber / Robotics','cotton mill or manufacturer':'nanofiber mill or robotics plant',
+ 'Manufacturers':'Robotics plants','manufacturers':'robotics plants','Manufacturer':'Robotics plant','manufacturer':'robotics plant',
+ 'Potteries':'Crystal labs','potteries':'crystal labs','Pottery':'Crystal lab','pottery':'crystal lab',
+ 'Merchant beer':'Hub food','merchant beer':'hub food','beer barrels':'food crates','beer barrel':'food crate','barrels':'crates','barrel':'crate',
+ 'a beer':'some food','a coal':'some helium-3','Coal':'Helium-3','coal':'helium-3','Iron':'Alloy','iron':'alloy','Beer':'Food','beer':'food',
+ 'Canal era':'Orbital era','canal era':'orbital era','Rail era':'Hyperlane era','rail era':'hyperlane era','Canals':'Freight lanes','canals':'freight lanes','Canal':'Freight lane','canal':'freight lane',
+ 'Rails':'Hyperlanes','rails':'hyperlanes','Rail':'Hyperlane','rail':'hyperlane','railways':'hyperlanes','Railways':'Hyperlanes',
+ 'Merchants':'Trade hubs','merchants':'trade hubs','Merchant':'Trade hub','merchant':'trade hub',
+ 'Warrington':'Earth Gate','Nottingham':'Mars Exchange','Shrewsbury':'Titan Port','Gloucester':'Ceres Bazaar','Oxford':'Europa Relay',
+ 'Birmingham':'Nova Prime','Coventry':'Kestrel Station','Wolverhampton':"Wolf's Reach",'Walsall':'Halcyon','Dudley':'Dust Hollow','Cannock':'Cinder Moon','Tamworth':"Tamsin's Rock",'Nuneaton':'Nightfall','Redditch':'Redline Yard','Kidderminster':'Kepler Deep','Worcester':'Vesper',
+ 'Stoke-on-Trent':'Stellar Forge','Leek':'Lumen','Belper':'Bellatrix','Derby':'Derrion','Uttoxeter':'Umbra','Stone':'Obsidian','Stafford':'Starford','Burton-on-Trent':'Bastion','Coalbrookdale':'Coldbrook Spire'
+};
+(()=>{for(const k of Object.keys(SPACE_WORDS)){const U=k.toUpperCase();if(U!==k&&!(U in SPACE_WORDS))SPACE_WORDS[U]=SPACE_WORDS[k].toUpperCase()}})();
+const SPACE_RE=new RegExp('(?<![\\w-])('+Object.keys(SPACE_WORDS).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')).join('|')+')(?![\\w-])','g');
+function sk(s){if(SETTING!=='space'||s==null)return s;return String(s).replace(SPACE_RE,m=>SPACE_WORDS[m]).replace(/£/g,'₡')}
+function skinDOM(root){if(SETTING!=='space'||!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){const t=n.nodeValue,s=sk(t);if(s!==t)n.nodeValue=s}}
+const SPACE_SYMBOLS=`<symbol id="ic-coal" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M10.8 2.5h2.4l4.4 16.5h-2.3l-.9-3.3H9.6L8.7 19H6.4z M10.2 13.4h3.6L12 6.6z"/><rect x="3.5" y="19" width="17" height="2.4" rx="1" fill="currentColor"/></symbol>
+<symbol id="ic-iron" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 6.5h11l4 6-4 6h-11l-4-6z"/><path d="M7.5 12.5h9" stroke="#fff" stroke-opacity=".55" stroke-width="1.4"/></symbol>
+<symbol id="ic-brewery" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 18.5a9.5 9.5 0 0 1 19 0z"/><path d="M12 17.5v-6.5m0 2.5c-2.2 0-3.4-1.4-3.4-3.4 2.1 0 3.4 1.2 3.4 3.4zm0 1c2.2 0 3.4-1.4 3.4-3.4-2.1 0-3.4 1.2-3.4 3.4z" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3"/><rect x="2" y="18.5" width="20" height="2.4" rx="1" fill="currentColor"/></symbol>
+<symbol id="ic-cotton" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3.5h14v3H5z M5 17.5h14v3H5z"/><path d="M8 7.5l8 2.5-8 2.5 8 2.5-8 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="ic-goods" viewBox="0 0 24 24"><rect x="3" y="18.5" width="10" height="3" rx="1" fill="currentColor"/><path d="M8 18.5v-5l6-5.5 4.5 2.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="13.5" r="2" fill="currentColor"/><circle cx="14" cy="8" r="2" fill="currentColor"/><path d="M18.5 10.5l2.5-2M18.5 10.5l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="ic-pottery" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l6.5 7.5L12 22 5.5 9.5z"/><path d="M5.5 9.5h13M12 2l-2.5 7.5L12 22l2.5-12.5z" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1"/></symbol>
+<symbol id="ic-barrel" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" fill="currentColor"/><path d="M4 10h16M12 5v15" stroke="#fff" stroke-opacity=".55" stroke-width="1.3"/></symbol>`;
+const DEFS_SPACE=DEFS.replace(/<symbol id="ic-[\s\S]*?<\/symbol>\n?/g,'').replace('<defs>','<defs>'+SPACE_SYMBOLS+'<radialGradient id="neb1"><stop offset="0" stop-color="#8A3CFF" stop-opacity=".45"/><stop offset="1" stop-color="#8A3CFF" stop-opacity="0"/></radialGradient><radialGradient id="neb2"><stop offset="0" stop-color="#1FC8E3" stop-opacity=".32"/><stop offset="1" stop-color="#1FC8E3" stop-opacity="0"/></radialGradient><linearGradient id="spacebg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A0E26"/><stop offset="1" stop-color="#170F33"/></linearGradient><radialGradient id="giant" cx=".35" cy=".35"><stop offset="0" stop-color="#F6C27A"/><stop offset=".7" stop-color="#C46A3C"/><stop offset="1" stop-color="#6E2E2A"/></radialGradient>');
+function starfield(){let s='';let x=17;for(let i=0;i<150;i++){x=(x*9301+49297)%233280;const px=(x/233280)*400;x=(x*9301+49297)%233280;const py=(x/233280)*600;x=(x*9301+49297)%233280;const r=.3+(x/233280)*1.1;s+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(2)}" class="st${i%11===0?' tw':''}"/>`}return s}
+const STARS=starfield();
+function spaceBg(era){return`<rect width="400" height="600" fill="url(#spacebg)"/><ellipse cx="90" cy="180" rx="170" ry="120" fill="url(#neb1)"/><ellipse cx="300" cy="440" rx="180" ry="140" fill="url(#neb2)"/>${era==='rail'?'<ellipse cx="250" cy="250" rx="200" ry="150" fill="url(#neb1)" opacity=".7"/>':''}${STARS}
+<path class="belt" d="M118 52 C130 110 210 120 238 165 S262 240 300 288 S370 330 404 322"/><path class="belt" d="M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604"/>
+<g transform="translate(340 46)"><ellipse rx="44" ry="9" class="ring" transform="rotate(-14)"/><circle r="27" fill="url(#giant)"/><path d="M-44 0a44 9 0 0 0 88 0" class="ring front" transform="rotate(-14)"/></g>`}
+function setSetting(v){SETTING=v;try{localStorage.setItem('bb-setting',v)}catch(x){}if(v==='space'&&THEME!=='space')THEME='space';if(v==='classic'&&THEME==='space')THEME='poster';try{localStorage.setItem('bb-theme',THEME)}catch(x){}document.title=SETTING==='space'?sk(BASE_DOC_TITLE):BASE_DOC_TITLE;render();if(typeof CHART!=='undefined'&&CHART.open)renderChart()}
+const BASE_DOC_TITLE=document.title;
+
 function icon(ind,x,y,s,cls){return`<use href="#ic-${ind}" x="${x}" y="${y}" width="${s}" height="${s}" class="${cls||''}"/>`}
 function pos(n){return TOWNS[n]?{x:TOWNS[n].x,y:TOWNS[n].y+T/2}:{x:MERCH[n].x,y:MERCH[n].y}}
 function hashN(s,n){let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))%9973;return h%n}
@@ -278,10 +351,11 @@ function skyline(k,cx,baseY,w){const t=TOWNS[k];let s='';
  return s}
 function puffs(x,y){return`<g class="smoke" pointer-events="none">${[0,1.2,2.4].map(d=>`<circle cx="${x}" cy="${y}" r="2.4" class="puff" style="animation-delay:${d}s"/>`).join('')}</g>`}
 let THEME=(()=>{try{return localStorage.getItem('bb-theme')||'poster'}catch(x){return'poster'}})();
-const THEMES=[['poster','Poster'],['survey','Survey map'],['blueprint','Blueprint'],['transit','Transit']];
+const THEMES=[['poster','Poster'],['survey','Survey map'],['blueprint','Blueprint'],['transit','Transit'],['space','Deep space']];
 const RIVERS=['M118 52 C130 110 210 120 238 165 S262 240 300 288 S370 330 404 322','M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604'];
 function hatch(cx,cy,n,sp){let d='';for(let i=0;i<n;i++){const x=cx+((i*37)%(sp*2))-sp,y=cy+((i*23)%(sp))-sp/2;d+=`M${x} ${y} q3 -6 6 0 `}return`<path class="hatch" d="${d}"/>`}
 function bgArt(th,era){
+ if(th==='space')return spaceBg(era);
  if(th==='survey')return`<rect width="400" height="600" class="paper"/>
 <path class="wash-g" d="M0 140 C40 120 90 150 130 135 S200 160 230 150 L230 260 C170 275 120 250 70 270 S20 280 0 275Z"/><path class="wash-g" d="M260 110 C300 100 340 125 400 110 L400 230 C360 245 320 225 270 240 Z"/><path class="wash-g" d="M150 430 C200 415 260 440 300 425 S380 440 400 430 L400 520 C340 535 280 515 220 530 S170 525 150 520Z"/><path class="wash-b" d="M0 300 C40 285 80 310 120 298 S170 280 190 300 L190 360 C150 375 110 355 70 370 S20 372 0 368Z"/>
 ${RIVERS.map(d=>`<path class="riv1" d="${d}"/><path class="riv2" d="${d}"/>`).join('')}
@@ -310,7 +384,7 @@ ${RIVERS.map(d=>`<path class="tr-riv" d="${d}"/>`).join('')}`;
 <path class="pg-bank" d="M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604"/><path class="pg-river" d="M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604"/>
 ${[[25,178],[245,196],[365,272],[160,456],[372,446],[285,522],[85,592],[365,588],[22,92],[188,560]].map(([x,y])=>`<g class="tree"><rect x="${x-0.8}" y="${y}" width="1.6" height="5" class="sil"/><circle cx="${x}" cy="${y-2}" r="5.5" class="pg-tree"/><circle cx="${x+6}" cy="${y+1}" r="4" class="pg-tree"/><circle cx="${x-5.5}" cy="${y+1.5}" r="3.6" class="pg-tree"/></g>`).join('')}
 ${era==='rail'?'<rect width="400" height="600" class="pg-haze"/>':''}`}
-function mapSVG(){const era=S.era;let s=`<svg viewBox="0 0 400 600" role="img" aria-label="Map of towns, merchants and links" class="poster theme-${THEME} era-${era}">${DEFS}${bgArt(THEME,era)}`;
+function mapSVG(){const era=S.era;let s=`<svg viewBox="0 0 400 600" role="img" aria-label="Map of towns, merchants and links" class="poster theme-${THEME} era-${era}">${SETTING==='space'?DEFS_SPACE:DEFS}${bgArt(THEME,era)}`;
  const legal=UI.legalLinks||new Set();
  const builtLine=(xy,o)=>era==='canal'?`<line ${xy} class="lk bank"/><line ${xy} class="lk core o${o}"/><line ${xy} class="lk shim"/>`:`<line ${xy} class="lk rties"/><line ${xy} class="lk rcore o${o}"/><line ${xy} class="lk trail"/>`;
  {const A=pos('kidder'),B=pos('worcester'),F=pos('farmB'),xy=`x1="${F.x}" y1="${F.y}" x2="${(A.x+B.x)/2}" y2="${(A.y+B.y)/2}"`,bl=S.links.find(x=>isKW(x));s+=bl?builtLine(xy,bl.owner):`<line ${xy} class="lk off"/>`}
@@ -321,17 +395,17 @@ function mapSVG(){const era=S.era;let s=`<svg viewBox="0 0 400 600" role="img" a
   else if(!avail)s+=`<line ${xy} class="lk off"/>`;
   else s+=era==='canal'?`<line ${xy} class="lk canal"/>`:`<line ${xy} class="lk ties"/><line ${xy} class="lk rail"/>`;
   if(!legal.has(l.id))s+=`<line ${xy} class="hit" data-link="${l.id}" style="cursor:help"/>`});
- for(const k in MERCH){const m=MERCH[k];const mt=S.merchTiles[k].length?S.merchTiles[k]:['none'];const n=mt.length,w=10+n*13,x0=m.x-w/2,y0=m.y-9;const pw=Math.max(w,m.n.length*(THEME==='survey'?5.4:4.7)+12);const mxc=Math.min(Math.max(m.x,pw/2+4),400-pw/2-4);
+ for(const k in MERCH){const m=MERCH[k];const mt=S.merchTiles[k].length?S.merchTiles[k]:['none'];const n=mt.length,w=10+n*13,x0=m.x-w/2,y0=m.y-9;const pw=Math.max(w,sk(m.n).length*(THEME==='survey'?5.4:4.7)+12);const mxc=Math.min(Math.max(m.x,pw/2+4),400-pw/2-4);
   s+=`<g data-merch="${k}"><rect x="${mxc-pw/2-3}" y="${y0-17}" width="${pw+6}" height="42" fill="transparent"/>
-  <rect x="${mxc-pw/2}" y="${y0-15}" width="${pw}" height="12" rx="2.5" class="plaque"/><text x="${mxc}" y="${y0-6.4}" class="ptext">${m.n.toUpperCase()}</text>
+  <rect x="${mxc-pw/2}" y="${y0-15}" width="${pw}" height="12" rx="2.5" class="plaque"/><text x="${mxc}" y="${y0-6.4}" class="ptext">${sk(m.n).toUpperCase()}</text>
   <rect x="${x0}" y="${y0}" width="${w}" height="19" rx="3" class="mbox"/>`;
   mt.forEach((a,i)=>{const cx=x0+5+i*13;s+=a==='none'?`<text x="${cx+5.5}" y="${m.y+3}" class="anyt">—</text>`:a==='blank'?`<line x1="${cx+2}" y1="${m.y}" x2="${cx+9}" y2="${m.y}" class="blankln"/>`:a==='any'?`<text x="${cx+5.5}" y="${m.y+3}" class="anyt">ANY</text>`:icon(a,cx,m.y-5.5,11,'mico')});
   for(let bi=0;bi<S.merchBeer[k];bi++)s+=icon('barrel',x0+w-4-bi*8,y0-4,10,'beer');
   s+=`</g>`}
  const hi=UI.hiTowns||new Set(),hov=UI.hoverTowns||new Set();
- for(const k in TOWNS){const t=TOWNS[k];const n=t.slots.length,w=n*STEP-(STEP-T),x0=t.x-w/2;const name=(t.lbl||t.n).toUpperCase();const bw=Math.max(w,name.length*(THEME==='survey'?4.9:4.3)+10);
+ for(const k in TOWNS){const t=TOWNS[k];const n=t.slots.length,w=n*STEP-(STEP-T),x0=t.x-w/2;const name=sk(t.lbl||t.n).toUpperCase();const bw=Math.max(w,name.length*(THEME==='survey'?4.9:4.3)+10);
   s+=`<g data-town="${k}"><rect x="${Math.min(x0,t.x-bw/2)-4}" y="${t.y-22}" width="${Math.max(w,bw)+8}" height="${T+38}" fill="transparent"/>`;
-  if(THEME==='poster'||THEME==='survey')s+=skyline(k,t.x,t.y-1,w);
+  if(THEME==='poster'||THEME==='survey')s+=skyline(k,t.x,t.y-1,w);else if(THEME==='space')s+=`<ellipse cx="${t.x}" cy="${t.y+T/2}" rx="${w/2+14}" ry="${T/2+9}" class="orbit"/><circle cx="${t.x-w/2-9}" cy="${t.y-4}" r="${t.slots.length>=3?5:3.5}" class="moon"/>`;
   if(hov.has(k))s+=`<rect x="${x0-5}" y="${t.y-5}" width="${w+10}" height="${T+10}" rx="6" class="hov"/>`;
   if(hi.has(k))s+=`<rect x="${x0-3}" y="${t.y-3}" width="${w+6}" height="${T+6}" rx="5" class="hi"/>`;
   t.slots.forEach((types,i)=>{const x=x0+i*STEP,y=t.y;const tile=tileAt(k,i);
@@ -468,7 +542,7 @@ function renderChart(){const el=document.getElementById('chart');if(!CHART.open)
   ${rows.map(d=>`<tr class="${own[d.l]?'':'ch-gone'}"><td class="l"><b>${ROMAN[d.l]}</b> <small>level ${d.l}</small>${d.l===nextL?' <span class="ch-next">Next</span>':''}</td><td>${d.n}</td><td>£${d.cost}</td><td>${need(d)}</td><td>${sell?(d.beer||0):makes(d)}</td><td class="ch-f ch-vp">${d.vp}</td><td class="ch-f ch-inc">+${d.inc}</td><td class="ch-f ch-lk">${d.lk}</td><td>${own[d.l]||0}</td><td>${tags(d)}</td></tr>`).join('')}
   </tbody></table></div></div>`};
  el.hidden=false;
- el.innerHTML=`<div class="ch-box" role="dialog" aria-modal="true" aria-label="Tile values"><div class="ch-top"><h2>What each tile is worth</h2><button type="button" data-act="closeChart">Close</button></div>
+ setTimeout(()=>skinDOM(el),0);el.innerHTML=`<div class="ch-box" role="dialog" aria-modal="true" aria-label="Tile values"><div class="ch-top"><h2>What each tile is worth</h2><button type="button" data-act="closeChart">Close</button></div>
  <p class="ch-sub">Shaded columns are what a tile gives once it flips face up: VP at the end of each era it survives, income spaces straight away, and link points for every link touching its town. "Yours left" counts the tiles still on your mat; faded rows are ones you've used up.</p>
  <div class="ch-tabs">${[['all','All'],...Object.keys(IND).map(k=>[k,IND[k].name])].map(([k,n])=>`<button type="button" class="${CHART.tab===k?'on':''}" data-act="chartTab" data-t="${k}">${k==='all'?'':ic(k)}${n}</button>`).join('')}</div>
  <div class="ch-sort">Sort by: ${[['level','Level'],['vp','VP'],['inc','Income'],['lk','Links']].map(([k,n])=>`<button type="button" class="${CHART.sort===k?'on':''}" data-act="chartSort" data-s="${k}">${n}</button>`).join('')}</div>
@@ -485,7 +559,7 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
  const confetti=Array.from({length:28},(_,k)=>`<i style="left:${(k*37)%100}%;background:var(${PCOL[k%P.length]});animation-delay:${(k%7)*0.35}s;animation-duration:${3.2+(k%5)*0.5}s"></i>`).join('');
  const title=winners.length>1?'A tie at the top':(solo(w)?'You win!':`${esc(WHO(w))} wins!`);
  const rows=rank.map((pi,k)=>{const c=era(pi,'canal'),r=era(pi,'rail'),bonus=P[pi].vp-(c||0)-(r||0);
-  return`<li class="fr ${medal(pos[k])}"><span class="fpos">${pos[k]}</span><span class="fbar" style="background:var(${PCOL[pi]})"></span><span class="fname"><b>${esc(P[pi].name)}</b><small>${c!==null?`Canal ${c}`:''}${r!==null?` · Rail ${r}`:''}${bonus>0?` · Merchant bonuses +${bonus}`:bonus<0?` · Unpaid income ${bonus}`:''} · Income £${incOf(P[pi])} · £${P[pi].money} cash</small></span><span class="fvp">${P[pi].vp}<small>VP</small></span></li>`}).join('');
+  return`<li class="fr ${medal(pos[k])}"><span class="fpos">${pos[k]}</span><span class="fbar" style="background:var(${PCOL[pi]})"></span><span class="fname"><b>${esc(P[pi].name)}</b><small>${c!==null?`Canal era ${c}`:''}${r!==null?` · Rail era ${r}`:''}${bonus>0?` · Merchant bonuses +${bonus}`:bonus<0?` · Unpaid income ${bonus}`:''} · Income £${incOf(P[pi])} · £${P[pi].money} cash</small></span><span class="fvp">${P[pi].vp}<small>VP</small></span></li>`}).join('');
  const online=typeof ONLINE!=='undefined'&&ONLINE;
  const again=online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>';
  return`<div class="modal fin"><div class="fconf" aria-hidden="true">${confetti}</div><div class="box fbox" role="dialog" aria-modal="true" aria-label="Final standings">
@@ -495,23 +569,29 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
  <ol class="flist">${rows}</ol>
  <p class="fnote">Ties are broken by income, then cash.</p>
  <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button>${again}</div></div></div>`}
-function render(){const ss=document.getElementById('styleSel');if(ss)ss.innerHTML=`<div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
- nudgeCheck();renderNudge();renderStatus();renderControls();$('undo').innerHTML=UNDO.length?`<button type="button" class="undo" data-act="undo">Undo ${S.humans>1?'last move':'my last move'}</button>`:'';$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
+function render(){renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
+function renderCore(){const ss=document.getElementById('styleSel');if(ss)ss.innerHTML=`<div class="stylesel setsel"><span>Setting</span><button type="button" class="${SETTING==='classic'?'on':''}" data-act="setSetting" data-v="classic">Classic</button><button type="button" class="${SETTING==='space'?'on':''}" data-act="setSetting" data-v="space">Space</button></div><div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
+ nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
  $('latest').innerHTML=S.log.slice(-4).reverse().map(t=>`<li>${esc(t)}</li>`).join('');
  $('coach').innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`;
  if(S.modal&&S.modal.handoff!==undefined){$('modal').innerHTML=`<div class="modal solid"><div class="box" role="dialog" aria-modal="true"><h2>${esc(WHO(S.modal.handoff))}, you're up</h2><p>Pass the device to ${esc(WHO(S.modal.handoff))}. Your hand stays hidden until you tap below.</p><div class="row"><button type="button" class="primary" data-act="takeTurn">Show my hand</button></div></div></div>`;return}
- if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
+ if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
  if(S.modal&&S.modal.final){$('modal').innerHTML=finalHTML();return}
  $('modal').innerHTML=S.modal?`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>${esc(S.modal.title)}</h2>${S.modal.lines.map(l=>`<p>${esc(l)}</p>`).join('')}<div class="row"><button type="button" class="primary" data-act="closeModal">${esc(S.modal.btn)}</button></div></div></div>`:''}
 
 /* input */
-function snap(){UNDO.push(JSON.stringify(S));if(UNDO.length>40)UNDO.shift()}
+function snap(){UNDO_DEADLINE=0;UNDO.push(JSON.stringify(S));if(UNDO.length>40)UNDO.shift()}
+let UNDO_DEADLINE=0;const UNDO_WINDOW=6000;
+function renderUndo(){const el=document.getElementById('undo');if(!el)return;if(UNDO_DEADLINE&&Date.now()>=UNDO_DEADLINE){UNDO=[];UNDO_DEADLINE=0}
+ if(!UNDO.length){el.innerHTML='';return}const secs=UNDO_DEADLINE?Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000)):0;const label=`Undo ${S.humans>1?'last move':'my last move'}`;
+ el.innerHTML=`<button type="button" class="undo${secs?' timed':''}" data-act="undo">${label}${secs?` <span class="usecs">${secs}s</span>`:''}${secs?`<span class="ubar" style="--s:${((UNDO_DEADLINE-Date.now())/UNDO_WINDOW).toFixed(3)};animation-duration:${UNDO_DEADLINE-Date.now()}ms"></span>`:''}</button>`;if(typeof skinDOM==='function')skinDOM(el)}
+setInterval(()=>{if(!UNDO_DEADLINE)return;if(Date.now()>=UNDO_DEADLINE){renderUndo();return}const s=document.querySelector('.usecs');if(s)s.textContent=Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000))+'s';else renderUndo()},250);
 function firstLink(e){snap();CM=[];discard(V(),[UI.card]);execLink(V(),e);if(S.era==='rail'&&bestLink2(V())){flushCoach();resetUI();UI.mode='link2';render()}else{flushCoach();resetUI();afterAction()}}
 function tileSpec(d){const need=[d.coal?`${d.coal} coal`:'',d.iron?`${d.iron} iron`:''].filter(Boolean).join(' + ');return`level ${d.l}: £${d.cost}${need?' + '+need:''}, ${d.vp} VP, +${d.inc} income, ${d.lk} link point${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${d.canal?', canal era only':''}${d.rail?', rail era only':''}${d.bulb?', can\'t be developed':''}`}
 function devOptsHTML(list,act){const p=S.players[V()];return list.map((e,k)=>{const ind=e.inds[0],cur=p.mat[ind][0],nx=p.mat[ind][1];
  const iron=e.ip.takes.length?`Iron from ${POSS(e.ip.takes[0].t.owner)} ironworks in ${TOWNS[e.ip.takes[0].t.town].n} (free)`:`Iron from the market: £${e.total}`;
  return`<button type="button" class="opt" data-act="${act}" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${ind}"/></svg>${IND[ind].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur)}</small><small>Next up: ${nx?tileSpec(nx):'nothing left of this industry'}</small><small>${iron}. ${p.mat[ind].length-1} left after this.</small></button>`})}
-function firstDevelop(e){snap();CM=[];discard(V(),[UI.card]);execDevelop(V(),e);const more=Object.keys(IND).some(k=>evalDevelop(V(),[k]).ok);flushCoach();resetUI();if(more){UI.mode='dev2';render()}else afterAction()}
+function firstDevelop(e){snap();CM=[];discard(V(),[UI.card]);execDevelop(V(),e);const more=Object.keys(IND).some(k=>evalDevelop(V(),[k]).ok);if(!more){const p=S.players[V()],ip=ironPlan(V(),1);coachAdd(p.money<ip.cost?`No second develop: another iron would cost £${ip.cost} and you have £${p.money}.`:'No second develop: nothing else on your mat can be developed.')}flushCoach();resetUI();if(more){UI.mode='dev2';render()}else afterAction()}
 function YOURS(i){return i===V()?'your':POSS(i)}
 function beerAltLabel(o){if(o.merch){const b=MERCH[o.m].bonus;return{t:`${MERCH[o.m].n}'s beer barrel`,s:`Bonus: ${b.type==='money'?'+£'+b.v:b.type==='vp'?'+'+b.v+' VP':b.type==='income'?'+'+b.v+' income spaces':'a free develop'}`}}
  const br=o.br||o.takes[0].t;const own=br.owner===V();return{t:`${own?'Your':POSS(br.owner)[0].toUpperCase()+POSS(br.owner).slice(1)} brewery in ${TOWNS[br.town].n} (${br.cubes} left)`,s:own?(br.cubes===1?'Uses your last beer there, which flips your brewery.':'Keeps more of your other beer for later.'):(br.cubes===1?`Their last beer there: it flips ${POSS(br.owner)} brewery and raises their income.`:`Uses ${POSS(br.owner)} beer instead of yours.`)}}
@@ -552,6 +632,7 @@ const H={
  doSell(el){const e=UI.opts[+el.dataset.k];if(!e)return;const alts=sellBeerAlts(V(),e.t);if(alts.length>1){UI.beerPick={kind:'sell',e,alts};render();return}sellNow(e)},
  finishSell(){resetUI();afterAction()},
  scoutGo(){if(UI.scout.length!==3)return;const c=[...UI.scout];userAction(c,()=>execScout(V()))},
+ setSetting(el){setSetting(el.dataset.v)},
  setTheme(el){THEME=el.dataset.t;try{localStorage.setItem('bb-theme',THEME)}catch(x){}render()},
  dismissNudge(){NUDGE_DISMISSED=true;renderNudge()},
  openChart(){CHART.open=true;hideTip();renderChart()},
@@ -561,13 +642,14 @@ const H={
  viewBoard(){if(typeof ONLINE!=='undefined'&&ONLINE&&S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render()},
  showResults(){S.modal={final:true};render()},
  playAgain(){S.modal={setup:true};render()},
- undo(){if(!UNDO.length)return;clearTimeout(botTimer);S=JSON.parse(UNDO.pop());resetUI();S.coach='Move undone.';hideTip();if(ONLINE){S.modal=null;NET.push(true)}render();maybeBot()},
- hint(){const c=candidates(V())[0];S.coach=`Suggestion: ${c.desc}.`;render()},
+ undo(){if(!UNDO.length)return;if(UNDO_DEADLINE&&Date.now()>=UNDO_DEADLINE){UNDO=[];UNDO_DEADLINE=0;renderUndo();return}UNDO_DEADLINE=0;clearTimeout(botTimer);S=JSON.parse(UNDO.pop());resetUI();S.coach='Move undone.';hideTip();if(ONLINE){S.modal=null;NET.push(true)}render();maybeBot()},
+ hint(){let c;try{const i=searchBotAction(V());c=candidates(V(),true)[i]}catch(x){c=candidates(V())[0]}S.coach=`Suggestion: ${c.desc}.`;render()},
  closeModal(){if(ONLINE){if(S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render();maybeBot();return}if(S.over){S.modal={setup:true};render();return}S.modal=null;render();maybeBot()},
  restart(){if(ONLINE){NET.toLobby();return}clearTimeout(botTimer);S.prevModal=S.modal;S.modal={setup:true,canCancel:!S.over&&S.started};render()},
  selN(el){SETUP.n=+el.dataset.n;SETUP.h=Math.min(SETUP.h,SETUP.n);render()},
  selH(el){SETUP.h=+el.dataset.n;render()},
- start(){newGame(SETUP.n,SETUP.h);S.started=true},
+ start(){newGame(SETUP.n,SETUP.h);S.botLevel=SETUP.bot;S.started=true},
+ selBot(el){SETUP.bot=el.dataset.v;render()},
  takeTurn(){S.view=S.modal.handoff;S.modal=null;resetUI();render()},
  cancelSetup(){S.modal=S.prevModal||null;render();maybeBot()}
 };
@@ -593,7 +675,7 @@ function linkTip(id){const l=LINKS[id],pi=V();const b=S.links.find(x=>x.id===id)
  if(!b&&!S.over){const e=evalLink(pi,l);h+=e.ok?`<div class="t-h">You can build it now for £${e.total}.</div>`:`<div class="t-no">${esc(e.reason)}</div>`}
  return h}
 function showTip(g,x,y){const t=$('tip');const key=g.dataset.town?'t:'+g.dataset.town:g.dataset.merch?'m:'+g.dataset.merch:'l:'+g.dataset.link;if(key!==tipKey){t.innerHTML=g.dataset.town?townTip(g.dataset.town):g.dataset.merch?merchTip(g.dataset.merch):linkTip(+g.dataset.link);tipKey=key}
- t.hidden=false;const r=t.getBoundingClientRect();let lx=x+16,ly=y+16;if(lx+r.width>innerWidth-8)lx=x-r.width-16;if(ly+r.height>innerHeight-8)ly=Math.max(8,innerHeight-r.height-8);if(lx<8)lx=8;t.style.left=lx+'px';t.style.top=ly+'px'}
+ skinDOM(t);t.hidden=false;const r=t.getBoundingClientRect();let lx=x+16,ly=y+16;if(lx+r.width>innerWidth-8)lx=x-r.width-16;if(ly+r.height>innerHeight-8)ly=Math.max(8,innerHeight-r.height-8);if(lx<8)lx=8;t.style.left=lx+'px';t.style.top=ly+'px'}
 $('map').addEventListener('mousemove',e=>{if(tipPinned)return;const g=e.target.closest('[data-town],[data-merch],[data-link]');if(!g){if(tipKey)hideTip();return}showTip(g,e.clientX,e.clientY)});
 $('map').addEventListener('mouseleave',()=>{if(!tipPinned)hideTip()});
 function buildAt(k){const pi=V(),p=S.players[pi];const cards=UI.card!==null&&UI.card!=='spent'?[UI.card]:p.hand.map((c,i)=>i);let opts=[];const seen=new Set();
@@ -613,7 +695,7 @@ function cardTip(card){const pi=V();const ok=dedupe(allBuilds(pi,card).filter(b=
  h+='<div class="sub" style="margin-top:4px">Any card can also pay for a link, sale, loan, develop or pass.</div>';return h}
 $('controls').addEventListener('mouseover',e=>{const c=e.target.closest('[data-hi]');if(!c)return;const card=S.players[V()].hand[+c.dataset.hi];if(!card)return;
  const set=card.t==='loc'?new Set([card.k]):new Set(allBuilds(V(),card).filter(b=>b.ok).map(b=>b.town));UI.hoverTowns=set;$('map').innerHTML=mapSVG();
- if(tipPinned||!matchMedia('(hover: hover)').matches)return;const t=$('tip');t.innerHTML=cardTip(card);tipKey='c:'+c.dataset.hi;t.hidden=false;const r=c.getBoundingClientRect(),tr=t.getBoundingClientRect();let lx=r.left-tr.width-12,ly=r.top;if(lx<8)lx=Math.min(innerWidth-tr.width-8,r.left);if(lx===r.left||lx<8)ly=r.bottom+8;if(ly+tr.height>innerHeight-8)ly=Math.max(8,innerHeight-tr.height-8);t.style.left=lx+'px';t.style.top=ly+'px'});
+ if(tipPinned||!matchMedia('(hover: hover)').matches)return;const t=$('tip');t.innerHTML=cardTip(card);skinDOM(t);tipKey='c:'+c.dataset.hi;t.hidden=false;const r=c.getBoundingClientRect(),tr=t.getBoundingClientRect();let lx=r.left-tr.width-12,ly=r.top;if(lx<8)lx=Math.min(innerWidth-tr.width-8,r.left);if(lx===r.left||lx<8)ly=r.bottom+8;if(ly+tr.height>innerHeight-8)ly=Math.max(8,innerHeight-tr.height-8);t.style.left=lx+'px';t.style.top=ly+'px'});
 $('controls').addEventListener('pointerdown',()=>{if(tipKey&&tipKey.startsWith('c:'))hideTip()});
 $('controls').addEventListener('mouseout',e=>{const c=e.target.closest('[data-hi]');if(!c||c.contains(e.relatedTarget))return;UI.hoverTowns=null;$('map').innerHTML=mapSVG();if(!tipPinned&&tipKey&&tipKey.startsWith('c:'))hideTip()});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(H[a])H[a](el)});
