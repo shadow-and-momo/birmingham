@@ -37,7 +37,7 @@ function needName(){const n=(document.getElementById('lb-name')?.value||getName(
 async function create(n){const name=needName();if(!name)return;
  const A='ABCDEFGHJKLMNPQRSTUVWXYZ';for(let tries=0;tries<8;tries++){const c=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');const ref=doc(db,'games',c);
   if((await getDoc(ref)).exists())continue;
-  await setDoc(ref,{code:c,title:TITLE,hostUid:uid,status:'lobby',seats:Array.from({length:n},(_,i)=>i===0?{uid,name,bot:false}:{uid:null,name:'',bot:false}),version:0,state:null,lastHumanUid:null,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  await setDoc(ref,{code:c,title:TITLE,hostUid:uid,status:'lobby',seats:Array.from({length:n},(_,i)=>i===0?{uid,name,bot:false,color:'#1F5FFF'}:{uid:null,name:'',bot:false}),version:0,state:null,lastHumanUid:null,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   join(c);return}
  toast('Could not create a game. Try again.')}
 function join(c){c=(c||'').trim().toUpperCase();if(!c)return;if(unsub)unsub();code=c;localVersion=0;history.replaceState(null,'','?g='+c);
@@ -52,7 +52,7 @@ function onGame(){IS_HOST=G.hostUid===uid;mySeat=G.seats.findIndex(s=>s.uid===ui
  if(G.version!==localVersion)apply();else renderNet()}
 function renderLobby(){const me=mySeat;const seats=G.seats;const humans=seats.filter(s=>s.uid).length;
  const row=(s,i)=>{let who,act='';
-  if(s.uid){who=`<b>${e(s.name||'Player')}</b>${s.uid===G.hostUid?' <small>(host)</small>':''}${s.uid===uid?' <small>(you)</small>':''}`;if(s.uid===uid&&!IS_HOST)act=`<button type="button" data-lb="leave" data-i="${i}">Leave seat</button>`;else if(IS_HOST&&s.uid!==uid)act=`<button type="button" data-lb="kick" data-i="${i}">Remove</button>`}
+  if(s.uid){const taken=G.seats.filter((x,j)=>j!==i&&x.uid&&x.color).map(x=>x.color);who=`${s.uid===uid?`<span class="swatches" style="display:inline-flex;vertical-align:middle;margin-right:8px">${COLOURS.map(([cn,c])=>`<button type="button" class="sw${s.color===c?' on':''}" style="background:${c};${taken.includes(c)?'opacity:.25;cursor:not-allowed':''}" data-lb="col" data-i="${i}" data-c="${c}" ${taken.includes(c)?'disabled':''} aria-label="${cn}${taken.includes(c)?' (taken)':''}" title="${cn}"></button>`).join('')}</span>`:`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${s.color||'var(--line)'};margin-right:8px;vertical-align:-1px"></span>`}<b>${e(s.name||'Player')}</b>${s.uid===G.hostUid?' <small>(host)</small>':''}${s.uid===uid?' <small>(you)</small>':''}`;if(s.uid===uid&&!IS_HOST)act=`<button type="button" data-lb="leave" data-i="${i}">Leave seat</button>`;else if(IS_HOST&&s.uid!==uid)act=`<button type="button" data-lb="kick" data-i="${i}">Remove</button>`}
   else if(s.bot){who='Bot';if(IS_HOST)act=`<button type="button" data-lb="bot" data-i="${i}">Open seat</button>`}
   else{who='<small>Open seat</small>';if(me<0)act+=`<button type="button" class="primary" data-lb="sit" data-i="${i}">Sit here</button>`;if(IS_HOST)act+=` <button type="button" data-lb="bot" data-i="${i}">Make bot</button>`}
   return`<div class="seat"><span class="who">Seat ${i+1}: ${who}</span>${act}</div>`};
@@ -66,7 +66,7 @@ function renderLobby(){const me=mySeat;const seats=G.seats;const humans=seats.fi
  ${lobbyErr?`<p class="err">${e(lobbyErr)}</p>`:''}`);lobbyErr=''}
 async function seatTx(fn){try{await runTransaction(db,async tx=>{const s=await tx.get(gref());const d=s.data();if(d.status!=='lobby')throw new Error('The game has already started.');const seats=d.seats.map(x=>({...x}));const r=fn(seats,d);if(r)throw new Error(r);tx.update(gref(),{seats,updatedAt:serverTimestamp()})})}catch(err){lobbyErr=err.message;if(G)renderLobby()}}
 async function startGame(){const seats=G.seats.map(s=>s.uid?{...s}:{uid:null,name:'',bot:true});
- const st=startOnline(seats);st.botLevel=G.botLevel||'devious';const out=JSON.parse(JSON.stringify(st));out.coach='';out.modal=null;
+ const st=startOnline(seats);{const chosen=seats.map(s=>s.uid&&s.color?s.color:null);const free=COLOURS.map(x=>x[1]).filter(c=>!chosen.includes(c));st.colors=chosen.map(c=>c||free.shift());}st.botLevel=G.botLevel||'devious';const out=JSON.parse(JSON.stringify(st));out.coach='';out.modal=null;
  try{await runTransaction(db,async tx=>{const s=await tx.get(gref());if(s.data().status!=='lobby')throw new Error('Already started.');tx.update(gref(),{seats,status:'playing',state:JSON.stringify(out),version:1,lastHumanUid:null,updatedAt:serverTimestamp()})});localVersion=0;DISMISSED=new Set()}catch(err){lobbyErr=err.message;renderLobby()}}
 
 /* ---------- sync ---------- */
@@ -98,11 +98,12 @@ document.addEventListener('click',async ev=>{const b=ev.target.closest('[data-lb
  else if(a==='offline'){if(unsub)unsub();code=null;ONLINE=false;$L.hidden=true;$W.hidden=false;$net.innerHTML='';const rb=document.querySelector('[data-act="restart"]');if(rb)rb.textContent='New game';S.modal={setup:true};render()}
  else if(a==='home')home();
  else if(a==='copy'){try{await navigator.clipboard.writeText(link());toast('Invite link copied.')}catch(x){prompt('Copy this link:',link())}}
- else if(a==='sit'){const name=needName();if(!name)return;seatTx(seats=>{if(seats.some(s=>s.uid===uid))return'You already have a seat.';if(seats[i].uid||seats[i].bot)return'That seat was just taken.';seats[i]={uid,name,bot:false}})}
+ else if(a==='sit'){const name=needName();if(!name)return;seatTx(seats=>{if(seats.some(s=>s.uid===uid))return'You already have a seat.';if(seats[i].uid||seats[i].bot)return'That seat was just taken.';const used=seats.filter(x=>x.uid&&x.color).map(x=>x.color);seats[i]={uid,name,bot:false,color:(COLOURS.map(x=>x[1]).find(c=>!used.includes(c))||null)}})}
  else if(a==='leave'||a==='kick')seatTx(seats=>{seats[i]={uid:null,name:'',bot:false}});
  else if(a==='bot')seatTx(seats=>{if(seats[i].uid)return'Someone is sitting there.';seats[i]={uid:null,name:'',bot:!seats[i].bot}});
  else if(a==='size'){const n=+b.dataset.n;seatTx(seats=>{while(seats.length<n)seats.push({uid:null,name:'',bot:false});while(seats.length>n){const last=seats[seats.length-1];if(last.uid)return'Remove the player in the last seat first.';seats.pop()}})}
  else if(a==='start')startGame();
+ else if(a==='col'){const c=b.dataset.c;seatTx(seats=>{if(seats[i].uid!==uid)return'That isn\'t your seat.';if(seats.some((x,j)=>j!==i&&x.uid&&x.color===c))return'Someone already chose that colour.';seats[i]={...seats[i],color:c}})}
  else if(a==='botlvl'){if(IS_HOST)await updateDoc(gref(),{botLevel:b.dataset.v,updatedAt:serverTimestamp()})}
  else if(a==='relobby'){await updateDoc(gref(),{status:'lobby',state:null,version:0,lastHumanUid:null,updatedAt:serverTimestamp()})}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.id==='lb-code'){if(needName())join(ev.target.value)}});
