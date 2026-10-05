@@ -1,6 +1,6 @@
 /* Game engine and display: turns, actions, scoring, bots, coach, map drawing
    and controls. Loaded after data.js and shares its globals. */
-let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1,bot:'devious'};
+let S,UI,CM=[],botTimer=null,UNDO=[];let ONLINE=false,IS_HOST=false,DISMISSED=new Set(),LAST_ACTOR=null;const SETUP={n:4,h:1,bot:'devious',colors:['#1F5FFF']};
 
 const $=id=>document.getElementById(id);
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -56,12 +56,17 @@ function resetUI(){UI={mode:null,card:null,sold:0,scout:[],note:'',opts:[]}}
 const STATE_VERSION=2;
 function startOnline(seats){ONLINE=true;newGame(seats.length,1);clearTimeout(botTimer);let b=0;
  S.humanSeats=seats.map(s=>!s.bot);S.humans=S.humanSeats.filter(Boolean).length;
- S.players.forEach((p,i)=>p.name=seats[i].bot?(seats.filter(s=>s.bot).length>1?'Bot '+(++b):'Bot'):seats[i].name);
+ {const bn=botNames(seats.filter(s=>s.bot).length,seats.filter(s=>!s.bot).map(s=>s.name));S.players.forEach((p,i)=>p.name=seats[i].bot?bn[b++]:seats[i].name)}
  S.schema=STATE_VERSION;S.order=shuffle(S.order.slice());S.turnIdx=0;startTurnReset();S.modal=null;S.log=[`Canal era begins. Turn order was drawn at random: ${S.order.map(i=>S.players[i].name).join(', ')}. ${S.players[S.order[0]].name} goes first.`];S.coach='';return S}
 function startTurnReset(){S.actionsLeft=1}
+const BOT_FIRST=['Ambrose','Bartholomew','Cornelius','Eliza','Ezekiel','Hortense','Lavinia','Mortimer','Octavia','Percival','Prudence','Rupert','Silas','Theodora','Wilhelmina','Augustus','Clementine','Edmund','Florence','Gideon','Harriet','Ignatius','Jemima','Leopold','Matilda','Phineas','Rosalind','Thaddeus','Winifred','Barnaby','Cordelia','Horatio','Philippa','Septimus','Agatha','Obadiah'];
+const BOT_LAST=['Coggleworth','Thistlewaite','Pemberforth','Grimsditch','Fothergill','Bramblecott','Inkersole','Quillfeather','Mossington','Ravenhurst','Kettleby','Furnival','Brasswick','Cindersby','Ashcombe','Smokeley','Gearhart','Ironsby','Wexley','Puddlecombe','Hollowell','Crumpton','Bellweather','Sootworth','Nettlefold','Tolliver','Pennywhistle','Hargreave','Lockwood','Fairweather'];
+function botNames(k,avoid){const used=new Set((avoid||[]).map(x=>x.toLowerCase())),out=[];const pick=a=>a[Math.floor(Math.random()*a.length)];let guard=0;
+ while(out.length<k&&guard++<500){const f=pick(BOT_FIRST),l=pick(BOT_LAST),n=f+' '+l;if(used.has(n.toLowerCase())||out.some(o=>o.split(' ')[0]===f||o.split(' ')[1]===l))continue;out.push(n)}
+ while(out.length<k)out.push('Bot '+(out.length+1));return out}
 function newGame(n,hu){n=n||2;hu=Math.min(hu||1,n);clearTimeout(botTimer);UNDO=[];
- S={era:'canal',round:1,humans:hu,view:0,players:Array.from({length:n},(_,i)=>newPlayer(i<hu?(hu===1?'You':'Player '+(i+1)):(n-hu===1?'Bot':'Bot '+(i-hu+1)))),order:shuffle(Array.from({length:n},(_,i)=>i)),turnIdx:0,actionsLeft:1,deck:buildDeck(n),tiles:[],links:[],mkt:{coal:13,iron:8},merchBeer:{},spent:Array(n).fill(0),seen:{},pending:[],turnSerial:0,myTurns:Array(n).fill(0),coachTurn:-1,log:[],over:false,nextId:1,coach:'',modal:null};
- dealMerchants(n);
+ S={era:'canal',round:1,humans:hu,view:0,players:Array.from({length:n},(_,i)=>newPlayer(i<hu?(hu===1?'You':'Player '+(i+1)):(n-hu===1?'Bot':'Bot '+(i-hu+1)))),order:shuffle(Array.from({length:n},(_,i)=>i)),turnIdx:0,actionsLeft:1,deck:buildDeck(n),tiles:[],links:[],mkt:{coal:13,iron:8},merchBeer:{},colors:['#1F5FFF','#E3262E','#FF8A00','#D6249F'].slice(0,n),spent:Array(n).fill(0),seen:{},pending:[],turnSerial:0,myTurns:Array(n).fill(0),coachTurn:-1,log:[],over:false,nextId:1,coach:'',modal:null};
+ dealMerchants(n);{const bn=botNames(n-hu);S.players.forEach((pl,i)=>{if(i>=hu)pl.name=bn[i-hu]})}
  S.players.forEach(p=>{for(let i=0;i<HAND;i++)p.hand.push(S.deck.pop());S.deck.pop()});
  resetUI();
  
@@ -370,19 +375,19 @@ ${RIVERS.map(d=>`<path class="bpriv" d="${d}"/>`).join('')}
  if(th==='transit')return`<rect width="400" height="600" class="tr-bg"/>
 <path class="tr-park" d="M0 140 C40 120 90 150 130 135 S200 160 230 150 L230 260 C170 275 120 250 70 270 S20 280 0 275Z"/><path class="tr-park" d="M150 430 C200 415 260 440 300 425 S380 440 400 430 L400 520 C340 535 280 515 220 530 S170 525 150 520Z"/>
 ${RIVERS.map(d=>`<path class="tr-riv" d="${d}"/>`).join('')}`;
- return`<rect width="400" height="600" class="pg-g1"/>
-<rect width="400" height="70" class="pg-sky"/>
-<circle cx="338" cy="44" r="30" class="pg-sun"/>
+ const ad=p=>(-((Date.now()/1000)%p)).toFixed(2);
+ const F=['M0 140 C40 120 90 150 130 135 S195 152 214 150 Q231 149 231 167 L230 243 Q229 258 212 262 C170 275 120 250 70 270 S20 280 0 275Z','M400 110 C340 125 300 100 279 106 Q261 111 262 129 L268 221 Q270 239 288 236 C320 225 360 245 400 230Z','M169 427 C200 415 260 440 300 425 S380 440 400 430 L400 520 C340 535 280 515 220 530 S181 526 169 524 Q151 520 151 503 L151 446 Q151 430 169 427Z'];
+ const H=['M0 300 C40 285 80 310 120 298 S160 284 174 288 Q191 293 191 312 L190 345 Q189 362 170 365 C140 368 110 355 70 370 S20 372 0 368Z','M269 357 C290 345 330 365 400 350 L400 400 C350 410 300 395 269 404 Q251 408 251 390 L251 374 Q251 360 269 357Z','M0 560 C60 545 140 575 220 560 S330 545 400 565 L400 600 L0 600Z'];
+ const rays=Array.from({length:12},(_,k)=>{const a=k*(Math.PI*2/12)-0.2,b=a+0.12;return`<path d="M0 0L${(Math.cos(a)*420).toFixed(0)} ${(Math.sin(a)*420).toFixed(0)}L${(Math.cos(b)*420).toFixed(0)} ${(Math.sin(b)*420).toFixed(0)}Z"/>`}).join('');
+ return`<defs><pattern id="pgDotsA" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="1.2" cy="1.2" r=".75" fill="#000" fill-opacity=".22"/></pattern></defs>
+<rect width="400" height="600" class="pg-g1"/><rect width="400" height="70" class="pg-sky"/>
+<g transform="translate(338 44)"><g class="sunrays" style="animation-delay:${ad(160)}s">${rays}</g></g><circle cx="338" cy="44" r="30" class="pg-sun"/>
+<path class="pg-far" d="M0 60 C40 46 80 58 120 48 S200 38 240 50 S330 40 400 54 L400 80 L0 80Z"/>
 <path class="pg-g1" d="M0 52 C50 40 90 62 140 50 S230 30 280 48 S360 66 400 50 L400 600 L0 600Z"/>
-<path class="pg-g3" d="M0 140 C40 120 90 150 130 135 S200 160 230 150 L230 260 C170 275 120 250 70 270 S20 280 0 275Z"/>
-<path class="pg-g3" d="M260 110 C300 100 340 125 400 110 L400 230 C360 245 320 225 270 240 Z"/>
-<path class="pg-g3" d="M150 430 C200 415 260 440 300 425 S380 440 400 430 L400 520 C340 535 280 515 220 530 S170 525 150 520Z"/>
-<path class="pg-g2" d="M0 300 C40 285 80 310 120 298 S170 280 190 300 L190 360 C150 375 110 355 70 370 S20 372 0 368Z"/>
-<path class="pg-g2" d="M250 360 C290 345 330 365 400 350 L400 400 C350 410 300 395 250 405Z"/>
-<path class="pg-g2" d="M0 560 C60 545 140 575 220 560 S330 545 400 565 L400 600 L0 600Z"/>
-<path class="pg-bank" d="M118 52 C130 110 210 120 238 165 S262 240 300 288 S370 330 404 322"/><path class="pg-river" d="M118 52 C130 110 210 120 238 165 S262 240 300 288 S370 330 404 322"/>
-<path class="pg-bank" d="M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604"/><path class="pg-river" d="M-4 282 C40 300 70 270 98 302 S110 380 92 440 S70 520 100 604"/>
-${[[25,178],[245,196],[365,272],[160,456],[372,446],[285,522],[85,592],[365,588],[22,92],[188,560]].map(([x,y])=>`<g class="tree"><rect x="${x-0.8}" y="${y}" width="1.6" height="5" class="sil"/><circle cx="${x}" cy="${y-2}" r="5.5" class="pg-tree"/><circle cx="${x+6}" cy="${y+1}" r="4" class="pg-tree"/><circle cx="${x-5.5}" cy="${y+1.5}" r="3.6" class="pg-tree"/></g>`).join('')}
+${F.map(d=>`<path d="${d}" class="fshadow" transform="translate(-4 6)"/>`).join('')}${F.map(d=>`<path d="${d}" class="pg-g3"/>`).join('')}
+${H.map(d=>`<path d="${d}" class="hshadow" transform="translate(-4 6)"/>`).join('')}${H.map(d=>`<path d="${d}" class="pg-g2"/><path d="${d}" fill="url(#pgDotsA)"/>`).join('')}
+${RIVERS.map(d=>`<path class="pg-bank" d="${d}"/><path class="pg-river" d="${d}"/>`).join('')}
+${[[25,178],[245,196],[365,272],[160,456],[372,446],[285,522],[85,592],[365,588],[22,92],[188,560]].map(([x,y])=>`<g class="tree"><ellipse cx="${x-6}" cy="${y+6}" rx="10" ry="3" class="tshadow"/><rect x="${x-0.8}" y="${y}" width="1.6" height="5" class="sil"/><circle cx="${x}" cy="${y-2}" r="5.5" class="pg-tree"/><circle cx="${x+6}" cy="${y+1}" r="4" class="pg-tree"/><circle cx="${x-5.5}" cy="${y+1.5}" r="3.6" class="pg-tree"/><circle cx="${x+1.6}" cy="${y-3.8}" r="2.2" class="thl"/></g>`).join('')}
 ${era==='rail'?'<rect width="400" height="600" class="pg-haze"/>':''}`}
 function mapSVG(){const era=S.era;let s=`<svg viewBox="0 0 400 600" role="img" aria-label="Map of towns, merchants and links" class="poster theme-${THEME} era-${era}">${SETTING==='space'?DEFS_SPACE:DEFS}${bgArt(THEME,era)}`;
  const legal=UI.legalLinks||new Set();
@@ -425,7 +430,7 @@ function legendHTML(){const sw=(c)=>`<svg viewBox="0 0 26 26" aria-hidden="true"
  return`<div class="lrow">${Object.keys(IND).map(ic).join('')}<span>${sw(icon('barrel',3,3,20,'beer'))}Merchant beer</span><span>${sw(`<circle cx="13" cy="13" r="9" fill="${RES_COL.coal}" stroke="#fff"/><text x="13" y="17" class="badge-t" style="font-size:11px">3</text>`)}Cubes left</span><span>${sw(`<circle cx="13" cy="13" r="9" class="beerneed" style="stroke-width:2"/><text x="13" y="17" class="badge-t beerneed-t" style="font-size:11px">1</text>`)}Beer needed to sell</span><span>${sw(`<circle cx="13" cy="13" r="9" fill="var(--brass)"/><text x="13" y="17.5" class="badge-t" style="font-size:12px">★</text>`)}Scoring</span></div><div class="lrow"><span>${sw(`<rect x="2" y="2" width="22" height="22" rx="4" class="down o0" style="fill:var(--panel)"/>`+icon('coal',5,5,16,'o0'))}Face down</span>
  <span>${sw(`<rect x="2" y="2" width="22" height="22" rx="4" class="up f0"/>`+icon('coal',5,5,16,'wico'))}Face up, scoring</span>
  <span><svg viewBox="0 0 34 12" aria-hidden="true">${S.era==='canal'?'<line x1="2" y1="6" x2="32" y2="6" class="lk canal"/>':'<line x1="2" y1="6" x2="32" y2="6" class="lk ties"/><line x1="2" y1="6" x2="32" y2="6" class="lk rail"/>'}</svg>Open ${S.era} route</span>
- ${S.players.map((p,i)=>`<span><i class="dot" style="background:var(${['--you','--bot','--p2','--p3'][i]})"></i>${esc(p.name)}</span>`).join('')}</div>`}
+ ${S.players.map((p,i)=>`<span><i class="dot" style="background:var(--pc${i})"></i>${esc(p.name)}</span>`).join('')}</div>`}
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function buildWhy(pi,card){const all=allBuilds(pi,card);const netR=all.filter(b=>!b.ok&&/isn't in your network/.test(b.reason));const other=topReasons(all.filter(b=>!b.ok&&!/isn't in your network/.test(b.reason)).map(b=>b.reason));
  const out=[...other];if(netR.length){const towns=[...new Set(netR.map(b=>TOWNS[b.town].n))];const net=[...network(pi)].map(nodeName);
@@ -441,7 +446,7 @@ function renderStatus(){const me=isHuman(cur());
  $('status').innerHTML=`<div class="sub">${S.era==='canal'?'Canal':'Rail'} era, round ${S.round}. Cards left in deck: ${S.deck.length}</div>
  <div class="turn ${S.over?'':me?'you':'bot'}">${turn}</div>
  <div class="stats">
-  ${S.players.map((p,i)=>`<div class="pl c${i}${!S.over&&cur()===i?' now':''}"><div class="nm">${p.name}</div><span class="big">£${p.money}</span> cash<br>Income £${incOf(p)}/round (space ${p.pos})<br>${p.vp} VP banked${p.loans?`, ${p.loans} loan${p.loans>1?'s':''}`:''}${isHuman(i)?'':`, ${p.hand.length} cards`}</div>`).join('')}
+  ${S.order.map((i,k)=>[S.players[i],i,k]).map(([p,i,k])=>`<div class="pl c${i}${!S.over&&cur()===i?' now':''}"><div class="nm"><span class="tpos" title="Turn order this round">${["1st","2nd","3rd","4th"][k]}</span>${esc(p.name)}${isHuman(i)?'':' <span class="bottag">bot</span>'}</div><span class="big">£${p.money}</span> cash<br>Income £${incOf(p)}/round (space ${p.pos})<br>${p.vp} VP banked${p.loans?`, ${p.loans} loan${p.loans>1?'s':''}`:''}${isHuman(i)?'':`, ${p.hand.length} cards`}</div>`).join('')}
   <div class="mkts"><span>Coal market: ${mp('coal')}</span><span>Iron market: ${mp('iron')}</span><span>Spent this round: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${S.spent[i]}`).join(', ')}</span></div>
  </div>`}
 function cardIcons(c){if(c.t==='ind')return(c.k==='cg'?['cotton','goods']:[c.k]).map(k=>`<svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>`).join('');return''}
@@ -550,7 +555,7 @@ function renderChart(){const el=document.getElementById('chart');if(!CHART.open)
  <p class="ch-sub">Income is in spaces on the income track: about £1 per space near the bottom, then 2, 3 and 4 spaces per £ as you climb. Merchants count as 2 link points.</p></div>`}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&CHART.open){CHART.open=false;renderChart()}});
 function finalRank(){return S.players.map((p,i)=>i).sort((a,b)=>(S.players[b].vp-S.players[a].vp)||(incOf(S.players[b])-incOf(S.players[a]))||(S.players[b].money-S.players[a].money))}
-const PCOL=['--you','--bot','--p2','--p3'];
+const PCOL=['--pc0','--pc1','--pc2','--pc3'];
 function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P[a].vp===P[b].vp&&incOf(P[a])===incOf(P[b])&&P[a].money===P[b].money;
  let pos=[];rank.forEach((pi,k)=>pos.push(k&&tie(rank[k-1],pi)?pos[k-1]:k+1));
  const w=rank[0],winners=rank.filter((pi,k)=>pos[k]===1);const es=S.eraScores||[];
@@ -569,13 +574,17 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
  <ol class="flist">${rows}</ol>
  <p class="fnote">Ties are broken by income, then cash.</p>
  <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button>${again}</div></div></div>`}
-function render(){renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
-function renderCore(){const ss=document.getElementById('styleSel');if(ss)ss.innerHTML=`<div class="stylesel setsel"><span>Setting</span><button type="button" class="${SETTING==='classic'?'on':''}" data-act="setSetting" data-v="classic">Classic</button><button type="button" class="${SETTING==='space'?'on':''}" data-act="setSetting" data-v="space">Space</button></div><div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
+const COLOURS=[['Blue','#1F5FFF'],['Red','#E3262E'],['Orange','#FF8A00'],['Magenta','#D6249F']];
+function fixSetupColours(){const used=[];SETUP.colors=SETUP.colors.slice(0,SETUP.h).filter(c=>{if(used.includes(c))return false;used.push(c);return true});for(const[,c]of COLOURS){if(SETUP.colors.length>=SETUP.h)break;if(!SETUP.colors.includes(c))SETUP.colors.push(c)}}
+function setupColourRows(){fixSetupColours();return SETUP.colors.map((mine,k)=>`<div class="row" style="align-items:center;margin-top:4px">${SETUP.h>1?`<span style="min-width:70px">Player ${k+1}</span>`:''}<div class="swatches">${COLOURS.map(([n,c])=>{const who=SETUP.colors.indexOf(c);return`<button type="button" class="sw${c===mine?' on':''}${who>=0&&who!==k?' taken':''}" style="background:${c}" data-act="pickCol" data-k="${k}" data-c="${c}" aria-label="${n}${who>=0&&who!==k?', chosen by Player '+(who+1)+' (swap)':''}" title="${n}"></button>`}).join('')}</div></div>`).join('')}
+function applyColours(){if(!document.documentElement)return;const r=document.documentElement.style;for(let i=0;i<4;i++){const c=S&&S.colors&&S.colors[i];if(c)r.setProperty('--pc'+i,c);else r.removeProperty('--pc'+i)}}
+function render(){applyColours();renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
+function renderCore(){const ss=document.getElementById('styleSel');const me=V(),myC=S.colors?S.colors[me]:null,canPick=S.colors&&me>=0&&me<S.players.length&&isHuman(me);if(ss)ss.innerHTML=`<div class="stylesel setsel"><span>Setting</span><button type="button" class="${SETTING==='classic'?'on':''}" data-act="setSetting" data-v="classic">Classic</button><button type="button" class="${SETTING==='space'?'on':''}" data-act="setSetting" data-v="space">Space</button></div><div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
  nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
  $('latest').innerHTML=S.log.slice(-4).reverse().map(t=>`<li>${esc(t)}</li>`).join('');
  $('coach').innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`;
  if(S.modal&&S.modal.handoff!==undefined){$('modal').innerHTML=`<div class="modal solid"><div class="box" role="dialog" aria-modal="true"><h2>${esc(WHO(S.modal.handoff))}, you're up</h2><p>Pass the device to ${esc(WHO(S.modal.handoff))}. Your hand stays hidden until you tap below.</p><div class="row"><button type="button" class="primary" data-act="takeTurn">Show my hand</button></div></div></div>`;return}
- if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
+ if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">${SETUP.h>1?'Colours':'Your colour'}</p>${setupColourRows()}<p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
  if(S.modal&&S.modal.final){$('modal').innerHTML=finalHTML();return}
  $('modal').innerHTML=S.modal?`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>${esc(S.modal.title)}</h2>${S.modal.lines.map(l=>`<p>${esc(l)}</p>`).join('')}<div class="row"><button type="button" class="primary" data-act="closeModal">${esc(S.modal.btn)}</button></div></div></div>`:''}
 
@@ -633,6 +642,7 @@ const H={
  finishSell(){resetUI();afterAction()},
  scoutGo(){if(UI.scout.length!==3)return;const c=[...UI.scout];userAction(c,()=>execScout(V()))},
  setSetting(el){setSetting(el.dataset.v)},
+ setColour(el){if(!S.colors)return;const me=V(),c=el.dataset.c,other=S.colors.indexOf(c);if(other===me)return;if(other>=0)S.colors[other]=S.colors[me];S.colors[me]=c;if(typeof ONLINE!=='undefined'&&ONLINE&&window.NET)NET.push();render()},
  setTheme(el){THEME=el.dataset.t;try{localStorage.setItem('bb-theme',THEME)}catch(x){}render()},
  dismissNudge(){NUDGE_DISMISSED=true;renderNudge()},
  openChart(){CHART.open=true;hideTip();renderChart()},
@@ -648,7 +658,8 @@ const H={
  restart(){if(ONLINE){NET.toLobby();return}clearTimeout(botTimer);S.prevModal=S.modal;S.modal={setup:true,canCancel:!S.over&&S.started};render()},
  selN(el){SETUP.n=+el.dataset.n;SETUP.h=Math.min(SETUP.h,SETUP.n);render()},
  selH(el){SETUP.h=+el.dataset.n;render()},
- start(){newGame(SETUP.n,SETUP.h);S.botLevel=SETUP.bot;S.started=true},
+ pickCol(el){fixSetupColours();const k=+el.dataset.k,c=el.dataset.c,o=SETUP.colors.indexOf(c);if(o>=0&&o!==k)SETUP.colors[o]=SETUP.colors[k];SETUP.colors[k]=c;render()},
+ start(){newGame(SETUP.n,SETUP.h);S.botLevel=SETUP.bot;fixSetupColours();{const mine=SETUP.colors.slice(0,SETUP.h),rest=COLOURS.map(x=>x[1]).filter(c=>!mine.includes(c));S.colors=mine.concat(rest).slice(0,S.players.length);render()}S.started=true},
  selBot(el){SETUP.bot=el.dataset.v;render()},
  takeTurn(){S.view=S.modal.handoff;S.modal=null;resetUI();render()},
  cancelSetup(){S.modal=S.prevModal||null;render();maybeBot()}

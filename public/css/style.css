@@ -28,8 +28,8 @@ h2{font-family:Bitter,Georgia,serif;font-weight:500;font-size:16px;margin:14px 0
 .turn{margin-top:4px;font-weight:600}
 .turn.you{color:var(--you)}.turn.bot{color:var(--bot)}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
-.pl{background:var(--panel);border-left:4px solid var(--you);padding:7px 10px;border-radius:6px;font-size:13px}
-.pl.c1{border-left-color:var(--bot)}.pl.c2{border-left-color:var(--p2)}.pl.c3{border-left-color:var(--p3)}.pl.now{outline:2px solid var(--brass)}
+.pl{background:var(--panel);border-left:4px solid var(--pc0);padding:7px 10px;border-radius:6px;font-size:13px}
+.pl.c1{border-left-color:var(--pc1)}.pl.c2{border-left-color:var(--pc2)}.pl.c3{border-left-color:var(--pc3)}.pl.now{outline:2px solid var(--brass)}
 .setup button{flex:1;font-size:16px}
 .pl .nm{font-family:Bitter,Georgia,serif;font-size:15px}
 .pl .big{font-size:17px;font-weight:600}
@@ -59,7 +59,7 @@ button:disabled{opacity:.45;cursor:default}
 .why{font-size:13.5px;color:var(--warn);margin:6px 0}
 .mat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
 .mat td{padding:3px 4px;border-bottom:1px solid var(--line)}
-.mat td:first-child{font-weight:500}
+.mat td:first-child{font-weight:500;white-space:nowrap}.mat td:last-child{white-space:nowrap}
 details{margin-top:14px;background:var(--panel);border-radius:8px;padding:8px 12px}
 summary{cursor:pointer;font-family:Bitter,Georgia,serif}
 details p{margin:8px 0;font-size:14px}
@@ -90,8 +90,8 @@ details p{margin:8px 0;font-size:14px}
 .lk.rties{stroke:var(--pg-soot);stroke-width:9;stroke-dasharray:1.6 4.4;stroke-linecap:butt}
 .lk.rcore{stroke-width:3.4}
 .lk.trail{stroke:#EDE8DE;stroke-width:3;stroke-dasharray:2 16;opacity:.45}
-.o0{stroke:var(--you);color:var(--you)}.o1{stroke:var(--bot);color:var(--bot)}.o2{stroke:var(--p2);color:var(--p2)}.o3{stroke:var(--p3);color:var(--p3)}
-.f0{fill:var(--you)}.f1{fill:var(--bot)}.f2{fill:var(--p2)}.f3{fill:var(--p3)}
+.o0{stroke:var(--pc0);color:var(--pc0)}.o1{stroke:var(--pc1);color:var(--pc1)}.o2{stroke:var(--pc2);color:var(--pc2)}.o3{stroke:var(--pc3);color:var(--pc3)}
+.f0{fill:var(--pc0)}.f1{fill:var(--pc1)}.f2{fill:var(--pc2)}.f3{fill:var(--pc3)}
 .hit{stroke:transparent;stroke-width:16;cursor:pointer}
 .banner{fill:var(--pg-soot)}
 .tname{font:600 7.4px Oswald,"Arial Narrow",sans-serif;letter-spacing:.06em;fill:var(--pg-cream);text-anchor:middle}
@@ -179,6 +179,55 @@ details p{margin:8px 0;font-size:14px}
 .tip .t-h{margin-top:6px;font-weight:600}
 .tip .t-no{color:var(--warn)}
 .undo{width:100%;margin-bottom:8px}
+.bottag{font:600 10.5px "Work Sans",sans-serif;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:2px}
+.tpos{display:inline-block;font:600 11px "Work Sans",sans-serif;color:var(--muted);background:var(--ground);border-radius:4px;padding:1px 5px;margin-right:6px;vertical-align:2px}
+:root{--pc0:#1F5FFF;--pc1:#E3262E;--pc2:#FF8A00;--pc3:#D6249F}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:28px;height:28px;min-height:28px;border-radius:50%;padding:0;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;position:relative}
+.sw.on{box-shadow:0 0 0 2.5px var(--ink)}
+.sw.taken::after{content:"";position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--panel);border:1.5px solid var(--muted)}
+/* poster: bold print background + gentle life */
+.theme-poster .lk.canal{stroke:#58A9E0}
+.fshadow{fill:var(--pg-g2);opacity:.35}
+.hshadow{fill:#0c1a0d;opacity:.2}
+.tshadow{fill:#0c1a0d;opacity:.24}
+.thl{fill:#fff;opacity:.14}
+.pg-far{fill:var(--pg-g3);opacity:.5}
+.sunrays path{fill:#FFF3D0;opacity:.16}
+.era-rail .sunrays path{opacity:.08}
+.sunrays{animation:sunspin 160s linear infinite}
+@keyframes sunspin{to{transform:rotate(360deg)}}
+.bird path{fill:none;stroke:#2B2724;stroke-width:1.2;stroke-linecap:round}
+.bird{transform:translate(-40px,30px)}
+.b1{animation:fly1 47s linear infinite}.b2{animation:fly2 71s linear infinite}
+@keyframes fly1{0%{transform:translate(-30px,34px)}28%{transform:translate(440px,16px)}100%{transform:translate(440px,16px)}}
+@keyframes fly2{0%{transform:translate(440px,22px)}22%{transform:translate(-40px,40px)}100%{transform:translate(-40px,40px)}}
+.flap{transform-box:fill-box;transform-origin:center;animation:flap .45s ease-in-out infinite alternate}
+@keyframes flap{to{transform:scaleY(-.55)}}
+.walker{transform:translate(-40px,590px)}
+.w1{animation:walk1 83s linear infinite}.w2{animation:walk2 109s linear infinite}
+@keyframes walk1{0%{transform:translate(-40px,589px)}42%{transform:translate(440px,589px)}100%{transform:translate(440px,589px)}}
+@keyframes walk2{0%{transform:translate(440px,594px) scaleX(-1)}26%{transform:translate(-40px,594px) scaleX(-1)}100%{transform:translate(-40px,594px) scaleX(-1)}}
+.bob{animation:bob .6s ease-in-out infinite alternate}
+@keyframes bob{to{transform:translateY(-.8px)}}
+.hop{animation:hop .55s ease-out infinite}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.sunrays,.bird,.flap,.walker,.bob,.hop{animation:none}.bird,.walker{display:none}}
+
+/* poster depth */
+.rays path{fill:#FFF3D0;opacity:.13}
+.era-rail .rays path{opacity:.07}
+.pg-far{fill:var(--pg-g3);opacity:.55}
+.pg-rim{fill:none;stroke:#FFF3D0;stroke-width:2;opacity:.35}
+.contours path{fill:none;stroke:#000;stroke-opacity:.07;stroke-width:6;stroke-linecap:round}
+.shade path{fill:#0c1a0d;opacity:.22;filter:url(#pgSoft)}
+.rim2 path{fill:none;stroke:#FFF8DC;stroke-width:1.4;opacity:.32}
+.lowband path{fill:#000;opacity:.09}
+.pg-rshade{fill:none;stroke:#0b2a3c;stroke-width:9;stroke-linecap:round;opacity:.35;transform:translate(-1.5px,2px)}
+.pg-rglint{fill:none;stroke:#E6F4FF;stroke-width:1.2;stroke-dasharray:3 16;stroke-linecap:round;opacity:.55}
+.tshadow{fill:#0c1a0d;opacity:.22}
+.thl{fill:#fff;opacity:.13}
+
 .undo.timed{position:relative;overflow:hidden;border-color:var(--brass)}
 .usecs{font-weight:700;color:var(--brass);margin-left:4px}
 .ubar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--brass);transform-origin:left;animation:ubar linear forwards}
