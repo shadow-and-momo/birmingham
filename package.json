@@ -1,0 +1,10 @@
+{
+  "name": "birmingham",
+  "private": true,
+  "description": "Private online version of an industrial-era network-building board game, for friends.",
+  "scripts": {
+    "test": "node --test tests/engine.test.mjs",
+    "serve": "firebase emulators:start --only auth,firestore,hosting"
+  },
+  "engines": { "node": ">=20" }
+}

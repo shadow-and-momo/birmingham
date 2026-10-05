@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brass Birmingham</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IM+Fell+English:ital@0;1&family=Share+Tech+Mono&family=Oswald:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+ <div class="left">
+  <div class="top"><h1 id="gtitle">Brass Birmingham</h1><span style="display:flex;gap:6px"><button type="button" data-act="openChart" style="min-height:34px;padding:4px 10px;font-size:13px">Tile values</button><button type="button" data-act="restart" style="min-height:34px;padding:4px 10px;font-size:13px">New game</button></span></div>
+  <div id="net"></div>
+  <div id="status"></div>
+  <div id="styleSel"></div>
+  <div class="legend wide-only" id="legend2"></div>
+ </div>
+ <div class="center">
+  <div class="mapbox" id="map"></div>
+  <div class="legend narrow-only" id="legend"></div>
+ </div>
+ <div class="right">
+  <ul class="latest" id="latest"></ul>
+  <div id="nudge"></div>
+  <div class="coach" id="coach"></div>
+  <div id="undo"></div>
+  <div id="controls"></div>
+  <details>
+    <summary>Quick rules</summary>
+    <p>Play with 2 to 4 players, any mix of people (passing the device) and bots: a canal era, then a rail era. Each turn you spend one card per action, two actions a turn (only one in the very first round). The era ends when the deck and every hand are empty.</p>
+    <p><b>Build</b>: a town card builds anything in that town, even outside your network. An industry card builds that industry anywhere in your network. Coal must travel along links to where it's used, or be bought from the market if you're linked to a merchant. Iron comes from anywhere.</p>
+    <p><b>Sell</b>: cotton, manufactured goods and pottery need a link route to a merchant that buys them, plus beer. Your own beer works from anywhere; another player's beer must be connected. A merchant's own barrel gives a bonus.</p>
+    <p>Hover over (or tap) a town to see its spaces and what your hand can build there; hover over a card to light up where it can build. Undo takes back your last move, even after the bots have played. Tiles score only once face up (flipped): coal, iron and beer tiles flip when their last cube is used, by anyone; goods tiles flip when sold. At each era's end you score face-up tiles plus your links (one point per link icon at each end; merchants count 2).</p>
+    <p>Income works like the real track: tiles move your marker spaces, and each £ of income takes 1, then 2, 3 and 4 spaces as you climb. A loan drops you three whole income levels. Develop removes one or two tiles (one iron each), and in the rail era you can build two rails in one action for £15, two coal and a beer.</p><p>Merchant tiles are shuffled onto the merchant spaces each game, with more blanks in smaller games, so which goods each merchant buys changes. In 2-player games Warrington and Nottingham have no merchant tiles; in 3-player games Nottingham has none. Merchant beer is refilled when the rail era starts. Simplified from the real game: the exact mix of merchant tiles is approximate, there's no overbuilding, and tile numbers are approximate.</p>
+  </details>
+ </div>
+</div>
+<div id="modal"></div>
+<div id="lobby" class="lobby" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<div id="chart" class="chartov" hidden></div>
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script type="module" src="js/net.js"></script>
+</body>
+</html>
