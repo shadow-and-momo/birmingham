@@ -51,7 +51,7 @@ function coachTips(pi){const p=S.players[pi],out=[],add=(id,pri,text)=>out.push(
  if(S.deck.length===0){const left=Math.ceil(p.hand.length/2);if(left>=1&&left<=2)add('end'+S.era+left,9,`The era ends after ${left} more turn${left>1?'s':''} of yours. Face-down tiles score nothing${S.era==='canal'?', and canals and level 1 tiles are removed afterwards':''}.`);
   let bl=null;LINKS.forEach(l=>{const e=evalLink(pi,l);if(e.ok){const v=icons(l.a)+icons(l.b);if(!bl||v>bl.v)bl={v,l,e}}});if(bl&&bl.v>=4)add('lk'+bl.l.id,6,`Best-scoring link open to you: ${nodeName(bl.l.a)} to ${nodeName(bl.l.b)}, ${bl.v} VP (£${bl.e.total}).`)}
  return out}
-function resetUI(){UI={mode:null,card:null,sold:0,scout:[],note:'',opts:[]}}
+function resetUI(){UI={mode:null,card:null,sold:0,scout:[],note:'',opts:[]};SHOWPTS=false;PTSEL=null}
 
 const STATE_VERSION=2;
 function startOnline(seats){ONLINE=true;newGame(seats.length,1);clearTimeout(botTimer);let b=0;
@@ -198,7 +198,7 @@ function evalSell(pi,t){if(t.owner!==pi||t.flipped||!SELLABLE.includes(t.ind))re
  for(const m of ms){const bp=beerPlan(pi,t,m,d);if(bp.ok)return{ok:true,t,m,bp}}
  return{ok:false,reason:`Not enough beer for the ${lower(t.ind)} in ${TOWNS[t.town].n}: it needs ${t.def.beer}. Build a brewery, or reach a merchant that still has its barrel.`}}
 function execSell(pi,e){const p=S.players[pi];consume(e.bp.takes,pi);let bonus='';
- if(e.bp.merch){S.merchBeer[e.m]--;const b=MERCH[e.m].bonus;if(b.type==='money'){p.money+=b.v;bonus=`+£${b.v}`}else if(b.type==='vp'){p.vp+=b.v;bonus=`+${b.v} VP`}else if(b.type==='develop'&&isHuman(pi)&&!SEARCHING){const ok=Object.keys(IND).some(k=>p.mat[k].length&&!p.mat[k][0].bulb);if(ok){S.pendingDev={pi};bonus='a free develop of your choice'}else bonus='no tiles to develop'}
+ if(e.bp.merch){S.merchBeer[e.m]--;const b=MERCH[e.m].bonus;if(b.type==='money'){p.money+=b.v;bonus=`+£${b.v}`}else if(b.type==='vp'){p.vp+=b.v;p.mvp=(p.mvp||0)+b.v;bonus=`+${b.v} VP`}else if(b.type==='develop'&&isHuman(pi)&&!SEARCHING){const ok=Object.keys(IND).some(k=>p.mat[k].length&&!p.mat[k][0].bulb);if(ok){S.pendingDev={pi};bonus='a free develop of your choice'}else bonus='no tiles to develop'}
  else if(b.type==='develop'){const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);ks.sort((a,b2)=>(p.mat[b2][0].canal&&S.era==='rail')-(p.mat[a][0].canal&&S.era==='rail')||p.mat[a][0].l-p.mat[b2][0].l||(a==='coal'?-1:0));if(ks.length){const d=p.mat[ks[0]].shift();bonus=`free develop of a level ${d.l} ${lower(ks[0])}`}else bonus='no tiles to develop'}else{p.pos=Math.min(99,p.pos+b.v);bonus=`income +${b.v} spaces`}}
  log(`${WHO(pi)} sold the ${lower(e.t.ind)} in ${TOWNS[e.t.town].n} to ${MERCH[e.m].n}${bonus?`, using its beer barrel (${bonus})`:''}.`);
  flip(e.t,pi);
@@ -212,7 +212,7 @@ function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const 
 function endTurn(){const p=S.players[cur()];p.hand.forEach(c=>delete c.fresh);while(p.hand.length<HAND&&S.deck.length){const c=S.deck.pop();c.fresh=true;p.hand.push(c)}S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}
 function startTurn(){const p=S.players[cur()];S.turnSerial++;if(isHuman(cur())&&p.hand.length)S.myTurns[cur()]++;S.actionsLeft=(S.era==='canal'&&S.round===1)?1:2;
  if(p.hand.length===0){S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}}
-function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money;p.money=0;p.vp-=short;log(`${p.name} couldn't cover negative income and lost ${short} VP.`)}});
+function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money;p.money=0;p.vp-=short;p.lostVp=(p.lostVp||0)+short;log(`${p.name} couldn't cover negative income and lost ${short} VP.`)}});
  if(!last)log(`Round ${S.round} over. Income paid: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${incOf(p)}`).join(', ')}.`);
  const ord=[...S.order].sort((a,b)=>S.spent[a]-S.spent[b]);
  if(ord[0]!==S.order[0])log(`${solo(ord[0])?'You spent':WHO(ord[0])+' spent'} the least, so ${solo(ord[0])?'you go':'they go'} first next round.`);
@@ -220,8 +220,8 @@ function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.ever
  if(S.deck.length===0&&S.players.every(p=>p.hand.length===0)){endEra();if(S.modal)S.eraNote={...S.modal,key:S.era+'-'+S.turnSerial+'-'+(S.over?'end':'mid')};return}
  S.round++;startTurn()}
 function icons(node){if(MERCH[node])return 2;return S.tiles.filter(t=>t.town===node&&t.flipped).reduce((s,t)=>s+t.def.lk,0)}
-function scoreEra(){const r=S.players.map(()=>({links:0,tiles:0}));S.links.forEach(l=>{r[l.owner].links+=icons(l.a)+icons(l.b)});S.tiles.forEach(t=>{if(t.flipped)r[t.owner].tiles+=t.def.vp});
- r.forEach((x,i)=>S.players[i].vp+=x.links+x.tiles);(S.eraScores=S.eraScores||[]).push({era:S.era,r:r.map(x=>({links:x.links,tiles:x.tiles}))});
+function scoreEra(){const r=S.players.map(()=>({links:0,tiles:0,li:[],ti:[]}));S.links.forEach(l=>{const v=icons(l.a)+icons(l.b);r[l.owner].links+=v;r[l.owner].li.push([`${nodeName(l.a)}–${nodeName(l.b)}`,v])});S.tiles.forEach(t=>{if(t.flipped){r[t.owner].tiles+=t.def.vp;r[t.owner].ti.push([`${IND[t.ind].name} L${t.def.l}, ${nodeName(t.town)}`,t.def.vp])}});
+ r.forEach((x,i)=>S.players[i].vp+=x.links+x.tiles);(S.eraScores=S.eraScores||[]).push({era:S.era,r:r.map(x=>({links:x.links,tiles:x.tiles,li:x.li.sort((a,b)=>b[1]-a[1]),ti:x.ti.sort((a,b)=>b[1]-a[1])}))});
  const lines=S.players.map((p,i)=>`${WHO(i)}: ${r[i].links} from links, ${r[i].tiles} from face-up tiles. Total ${p.vp} VP.`);
  log(`${S.era==='canal'?'Canal':'Rail'} era scored. ${lines.join(' ')}`);return lines}
 function endEra(){const lines=scoreEra();
@@ -584,13 +584,33 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
   return`<li class="fr ${medal(pos[k])}"><span class="fpos">${pos[k]}</span><span class="fbar" style="background:var(${PCOL[pi]})"></span><span class="fname"><b>${esc(P[pi].name)}</b><small>${c!==null?`Canal era ${c}`:''}${r!==null?` · Rail era ${r}`:''}${bonus>0?` · Merchant bonuses +${bonus}`:bonus<0?` · Unpaid income ${bonus}`:''} · Income £${incOf(P[pi])} · £${P[pi].money} cash</small></span><span class="fvp">${P[pi].vp}<small>VP</small></span></li>`}).join('');
  const online=typeof ONLINE!=='undefined'&&ONLINE;
  const again=online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>';
- return`<div class="modal fin"><div class="fconf" aria-hidden="true">${confetti}</div><div class="box fbox" role="dialog" aria-modal="true" aria-label="Final standings">
+ return`<div class="modal fin"><div class="fconf" aria-hidden="true">${confetti}</div><div class="box fbox${SHOWPTS?' wide':''}" role="dialog" aria-modal="true" aria-label="Final standings">
  <div class="fribbon">Final standings</div>
  <svg class="ftrophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M18 8h28v10c0 9-6 16-14 16s-14-7-14-16z" fill="#E2B13C"/><path d="M18 12H9c0 9 5 14 11 14M46 12h9c0 9-5 14-11 14" fill="none" stroke="#E2B13C" stroke-width="4"/><rect x="28" y="33" width="8" height="10" fill="#C9962A"/><rect x="20" y="43" width="24" height="7" rx="2" fill="#E2B13C"/><rect x="16" y="50" width="32" height="6" rx="2" fill="#B9852A"/><path d="M26 14l3 5 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z" fill="#FFF3C4" opacity=".9" transform="translate(6 -2) scale(.8)"/></svg>
  <h2 class="ftitle">${title}</h2><p class="fsub">${winners.length>1?'Tied on VP, income and cash.':`${P[w].vp} VP${rank.length>1?`, ${P[w].vp-P[rank[1]].vp} ahead of second`:''}`}</p>
  <ol class="flist">${rows}</ol>
  <p class="fnote">Ties are broken by income, then cash.</p>
- <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button>${again}</div></div></div>`}
+ ${SHOWPTS?pointsHTML(rank):""}
+ <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button><button type="button" data-act="showPoints">${SHOWPTS?'Hide all points':'Show all points'}</button>${again}</div></div></div>`}
+var SHOWPTS=false,PTSEL=null;
+const PTK=[['Canal links','canal','li','links'],['Canal tiles','canal','ti','tiles'],['Rail links','rail','li','links'],['Rail tiles','rail','ti','tiles']];
+function ptSegs(pi){const es=S.eraScores||[],P=S.players[pi];const g=PTK.map(([n,e,it,k])=>{const x=es.find(z=>z.era===e);const r=x&&x.r[pi];return{n,v:r?r[k]:0,items:r&&r[it]?r[it]:[]}});
+ if(P.mvp)g.push({n:'Merchant bonuses',v:P.mvp,items:[]});return g}
+function pointsHTML(rank){const P=S.players;const max=Math.max(1,...rank.map(pi=>ptSegs(pi).reduce((a,x)=>a+x.v,0)));
+ if(!PTSEL){const pi=rank[0],sg=ptSegs(pi);let j=0;sg.forEach((x,k)=>{if(x.v>sg[j].v)j=k});PTSEL=[pi,j]}
+ const bars=rank.map(pi=>{const sg=ptSegs(pi),t=sg.reduce((a,x)=>a+x.v,0);
+  return`<div class="pbrow"><span class="pbname"><i style="background:var(${PCOL[pi]})"></i>${esc(P[pi].name)}</span><span class="pbtrack"><span class="pbbar" style="width:${t/max*100}%">${sg.map((x,j)=>x.v>0?`<button type="button" class="pbseg s${j}${PTSEL[0]===pi&&PTSEL[1]===j?' on':''}" data-act="ptSeg" data-pi="${pi}" data-j="${j}" style="flex:${x.v}" aria-label="${esc(P[pi].name)}: ${x.n} ${x.v} VP">${x.v}</button>`:'').join('')}</span></span><span class="pbtot">${P[pi].vp}</span></div>`}).join('');
+ const [spi,sj]=PTSEL,sg=ptSegs(spi)[sj]||{n:'',v:0,items:[]},sp=P[spi];
+ const shown=sg.items.filter(x=>x[1]>0),zero=sg.items.length-shown.length;
+ const list=sg.n==='Merchant bonuses'?'VP from merchant bonus tiles when selling.':shown.length?shown.map(x=>`${esc(x[0])} <b>${x[1]}</b>`).join(' · ')+(zero?` · plus ${zero} worth 0`:''):'Nothing scored here.';
+ const note=sg.n.endsWith('links')?'Each link scores 1 per link icon on the face-up tiles at both ends (merchants count 2).':sg.n.endsWith('tiles')?'Only flipped (sold or used) tiles score.':'';
+ const lost=sp.lostVp?` · Lost ${sp.lostVp} VP to unpaid income`:'';
+ return`<div class="fpts"><div class="fptitle">Where the points came from</div>${bars}
+ <div class="pbinfo"><b>${esc(sp.name)} · ${sg.n} · ${sg.v} VP</b><div>${list}</div><small>${note}${note?' ':''}Income £${incOf(sp)}, £${sp.money} cash${lost}</small></div>
+ <div class="pbkey">${PTK.map((x,j)=>`<span><i class="s${j}"></i>${x[0]}</span>`).join('')}${rank.some(pi=>P[pi].mvp)?'<span><i class="s4"></i>Merchant bonuses</span>':''}</div></div>`}
+function refreshPoints(){const b=document.querySelector('.fbox');if(!b)return render();const old=b.querySelector('.fpts'),btn=b.querySelector('[data-act="showPoints"]');
+ if(btn)btn.textContent=SHOWPTS?'Hide all points':'Show all points';b.classList.toggle('wide',SHOWPTS);
+ if(!SHOWPTS){if(old)old.remove();return}const h=pointsHTML(finalRank());if(old)old.outerHTML=h;else b.querySelector('.fnote').insertAdjacentHTML('afterend',h);if(typeof skinDOM==='function')skinDOM(b)}
 const COLOURS=[['Blue','#1F5FFF'],['Red','#E3262E'],['Orange','#FF8A00'],['Magenta','#D6249F']];
 function fixSetupColours(){const used=[];SETUP.colors=SETUP.colors.slice(0,SETUP.h).filter(c=>{if(used.includes(c))return false;used.push(c);return true});for(const[,c]of COLOURS){if(SETUP.colors.length>=SETUP.h)break;if(!SETUP.colors.includes(c))SETUP.colors.push(c)}}
 function setupColourRows(){fixSetupColours();return SETUP.colors.map((mine,k)=>`<div class="row" style="align-items:center;margin-top:4px">${SETUP.h>1?`<span style="min-width:70px">Player ${k+1}</span>`:''}<div class="swatches">${COLOURS.map(([n,c])=>{const who=SETUP.colors.indexOf(c);return`<button type="button" class="sw${c===mine?' on':''}${who>=0&&who!==k?' taken':''}" style="background:${c}" data-act="pickCol" data-k="${k}" data-c="${c}" aria-label="${n}${who>=0&&who!==k?', chosen by Player '+(who+1)+' (swap)':''}" title="${n}"></button>`}).join('')}</div></div>`).join('')}
@@ -699,6 +719,8 @@ const H={
  chartSort(el){CHART.sort=el.dataset.s;renderChart()},
  viewBoard(){if(typeof ONLINE!=='undefined'&&ONLINE&&S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render()},
  showResults(){S.modal={final:true};render()},
+ showPoints(){SHOWPTS=!SHOWPTS;refreshPoints()},
+ ptSeg(el){PTSEL=[+el.dataset.pi,+el.dataset.j];refreshPoints()},
  playAgain(){S.modal={setup:true};render()},
  openLog(){LOGOPEN=true;hideTip();renderLogModal()},
  closeLog(){LOGOPEN=false;renderLogModal()},

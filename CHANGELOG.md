@@ -5,6 +5,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Show all points** on the final standings. A bar for each player split into canal links, canal tiles, rail links, rail tiles (and merchant bonuses), in the board's colours. Tap a segment to list every link and tile in it with its points.
 - **Overbuilding.** Replace your own tile with a higher level of the same industry, or another player's coal mine or ironworks with a higher level when there's none of that resource left on the board or in the market. Overbuild options are labelled in the build list. Bots overbuild too.
 - **Sound effects** for building, links and sales (softer for other players' moves), and a **chime when your turn starts**.
 - **Sound effects setting** below the map key: on/off, remembered on each device.
