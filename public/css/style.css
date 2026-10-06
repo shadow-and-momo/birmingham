@@ -195,6 +195,11 @@ details p{margin:8px 0;font-size:14px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}}
 :root[data-theme="dark"] .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}
 .acts-h{margin-top:4px}
+.setgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
+.setgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.setgrid select{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;min-height:36px;padding:4px 6px;width:100%;cursor:pointer}
+.setgrid select:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.lockmsg{background:color-mix(in srgb,var(--brass) 14%,var(--panel));border:1px solid var(--brass);border-radius:8px;padding:9px 12px}
 .newgame{width:100%;margin:2px 0 8px}
 #controls .groove{margin:14px 0 4px}
 #controls .groove+h2{margin-top:8px}

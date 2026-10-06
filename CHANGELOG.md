@@ -5,6 +5,9 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Overbuilding.** Replace your own tile with a higher level of the same industry, or another player's coal mine or ironworks with a higher level when there's none of that resource left on the board or in the market. Overbuild options are labelled in the build list. Bots overbuild too.
+- **Sound effects** for building, links and sales (softer for other players' moves), and a **chime when your turn starts**.
+- **Sound effects setting** below the map key: on/off, remembered on each device.
 - **Market display**: the coal and iron markets are shown as two rows of dots (black for coal, orange for iron) with prices underneath. Bought cubes leave an empty outline, taken from left to right, and sold cubes fill back in.
 - **Coach and hints as a start-of-game choice.** Off by default; turn them on in the New game screen, or the host turns them on in the online lobby. Locked once the game starts.
 - **Space setting ("Brass: Belt").** A Classic/Space choice that renames everything with a sci-fi theme (freight lanes and hyperlanes, helium-3, alloy and food, credits), swaps in new industry icons, and adds a Deep space map style. Rules, counts, costs and connections are unchanged. Each player picks their own setting.
@@ -23,12 +26,15 @@ All notable changes to the game, newest first. Each pull request should add its 
 - **Player colours** (blue, red, orange, magenta) chosen at setup or in the online lobby, then locked for the game.
 - **Old-timey bot names** generated each game, with a "bot" tag on their panels.
 - **Polite nudge** when a turn has gone two minutes without a move.
-- **6-second undo** after your turn passes to the next player, with a countdown.
+- **10-second undo** after your turn passes when other people are playing. The next player can't move until it runs out. When you're the only person (just bots), undo has no time limit.
 - **Random starting turn order**, shown at the top of the game log.
 - **Saved-game version number**, so an update that changes how games are stored asks the host to start fresh instead of breaking.
 - Automated tests for full 2-, 3- and 4-player games, the card deck and the player mats.
 
 ### Changed
+- **Settings as dropdowns**: Sound effects, Setting and Map style sit side by side as compact dropdowns in the left column.
+- **Clearer icons**: the coal mine is now a mine cart, the ironworks an anvil, and the cotton mill a factory with a sawtooth weaving-shed roof, so they don't get confused with the ironworks and brewery.
+- **Tile summaries show what tiles produce** (for example "makes 3 coal") in Your next tiles and develop options.
 - **New game** (or **Lobby** / **Leave** online) moved to the bottom of the left column; the Tile values button left the header (the chart opens from **All tile values** beside Your next tiles).
 - **Your actions** heading above the action buttons, and subtle grooved dividers between the markets, spending, game log and settings in the left column, and between your actions, hand and next tiles in the right column.
 - **Layout**: on wide screens the map key sits in the right column above the rules, and the latest moves and full game log link sit in the left column above the Setting and Map style controls.
@@ -43,6 +49,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Code split into separate files (`data.js`, `engine.js`, `net.js`, `style.css`) to make contributing easier.
 
 ### Fixed
+- **Gloucester's free develop** now lets you choose which tile to remove (or skip it), instead of picking automatically. Bots still choose for themselves.
 - **Lightbulb rule**: pottery I and III can't be developed, including by Gloucester's free develop.
 - **Rail-only tiles**: brewery IV and pottery V can't be built in the canal era.
 - Your own breweries now say "your" in online games instead of showing your name.
