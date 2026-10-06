@@ -108,24 +108,30 @@ function cardAllows(card,ind,town,pi){
  const net=network(pi);if(net.size&&!net.has(town))return`${TOWNS[town].n} isn't in your network. Industry cards only build where you already have a tile or a link touching the town; town cards ignore this.`;return null}
 function evalBuild(pi,card,ind,town,slot){const p=S.players[pi];
  const r=cardAllows(card,ind,town,pi);if(r)return{ok:false,reason:r};
- if(tileAt(town,slot))return{ok:false,reason:'Every matching space there is taken.'};
- if(S.era==='canal'&&S.tiles.some(t=>t.owner===pi&&t.town===town))return{ok:false,reason:`In the canal era you may have only one tile per town, and you already have one in ${TOWNS[town].n}.`};
- const def=p.mat[ind][0];if(!def)return{ok:false,reason:`You have no ${lower(ind)} tiles left.`};
+ const ex=tileAt(town,slot);const def=p.mat[ind][0];
+ if(ex){if(ex.ind!==ind)return{ok:false,reason:'Every matching space there is taken.'};if(!def)return{ok:false,reason:`You have no ${lower(ind)} tiles left.`};
+  if(def.l<=ex.def.l)return{ok:false,reason:`To overbuild the level ${ex.def.l} ${lower(ind)} in ${TOWNS[town].n} you need a higher level; your next is level ${def.l}.`};
+  if(ex.owner!==pi){if(ind!=='coal'&&ind!=='iron')return{ok:false,reason:`You can only overbuild your own ${lower(ind)}. Other players' tiles can be overbuilt only if they're coal mines or ironworks.`};
+   if(S.tiles.some(t=>t.ind===ind&&t.cubes>0)||S.mkt[ind]>0)return{ok:false,reason:`You can only overbuild another player's ${lower(ind)} when there's no ${ind} left on the board or in the market.`}}}
+ if(S.era==='canal'&&S.tiles.some(t=>t.owner===pi&&t.town===town&&t!==ex))return{ok:false,reason:`In the canal era you may have only one tile per town, and you already have one in ${TOWNS[town].n}.`};
+ if(!def)return{ok:false,reason:`You have no ${lower(ind)} tiles left.`};
  if(S.era==='canal'&&def.rail)return{ok:false,reason:`Your next ${lower(ind)} is level ${def.l}, which can only be built in the rail era.`};
  if(S.era==='rail'&&def.canal)return{ok:false,reason:`Your next ${lower(ind)} is level 1, which can't be built in the rail era. Develop past it first.`};
  const cp=coalPlan(pi,[town],def.coal||0);if(!cp.ok)return{ok:false,reason:cp.reason};
  const ip=ironPlan(pi,def.iron||0);
  const total=def.cost+cp.cost+ip.cost;if(p.money<total)return{ok:false,reason:`A level ${def.l} ${lower(ind)} there costs £${total}, but you have £${p.money}. A loan gives £30.`};
- return{ok:true,def,cp,ip,total,ind,town,slot,card}}
+ return{ok:true,def,cp,ip,total,ind,town,slot,card,over:ex?ex.id:null}}
 function allBuilds(pi,card){const res=[];const towns=card.t==='loc'?[card.k]:Object.keys(TOWNS);
  const inds=card.t==='ind'?(card.k==='cg'?['cotton','goods']:[card.k]):Object.keys(IND);
  for(const town of towns)for(const ind of inds)for(const slot of slotsFor(town,ind)){const r=evalBuild(pi,card,ind,town,slot);if(!r.ok){r.town=town;r.ind=ind;r.slot=slot}res.push(r)}return res}
-function dedupe(builds){const m={};builds.forEach(b=>{const k=b.ind+b.town;const w=TOWNS[b.town].slots[b.slot].length;if(!m[k]||w<m[k].w)m[k]={b,w,alts:[b.slot]};else if(w===m[k].w)m[k].alts.push(b.slot)});return Object.values(m).map(x=>{x.b.alts=x.alts;return x.b})}
+function overTxt(b){if(b.over==null)return'';const o=S.tiles.find(x=>x.id===b.over);return o?` (overbuilds ${o.owner===V()?'your':POSS(o.owner)} level ${o.def.l})`:''}
+function dedupe(builds){const m={};builds.forEach(b=>{const k=b.ind+b.town+(b.over!=null?'o'+b.slot:'');const w=TOWNS[b.town].slots[b.slot].length;if(!m[k]||w<m[k].w)m[k]={b,w,alts:[b.slot]};else if(w===m[k].w)m[k].alts.push(b.slot)});return Object.values(m).map(x=>{x.b.alts=x.alts;return x.b})}
 function execBuild(pi,b){const p=S.players[pi];p.money-=b.total;S.spent[pi]+=b.total;
  consume(b.cp.takes,pi);if(b.cp.mkt)mktTake('coal',b.cp.mkt);consume(b.ip.takes,pi);if(b.ip.mkt)mktTake('iron',b.ip.mkt);
  p.mat[b.ind].shift();const def=b.def;
  const t={id:S.nextId++,owner:pi,ind:b.ind,def,town:b.town,slot:b.slot,cubes:0,flipped:false};
  if(b.ind==='coal'||b.ind==='iron')t.cubes=def.prod;if(b.ind==='brewery')t.cubes=S.era==='canal'?1:2;
+ if(b.over!=null){const old=S.tiles.find(x=>x.id===b.over);if(old){S.tiles=S.tiles.filter(x=>x!==old);log(`${WHO(pi)} overbuilt ${old.owner===pi?(solo(pi)?'their own':'their own'):WHO(old.owner)+"'s"} level ${old.def.l} ${lower(old.ind)} in ${TOWNS[old.town].n}.`)}}
  S.tiles.push(t);
  log(`${p.name} built a level ${def.l} ${lower(b.ind)} in ${TOWNS[b.town].n} for £${b.total}.`);
  let sold=null;
@@ -192,7 +198,8 @@ function evalSell(pi,t){if(t.owner!==pi||t.flipped||!SELLABLE.includes(t.ind))re
  for(const m of ms){const bp=beerPlan(pi,t,m,d);if(bp.ok)return{ok:true,t,m,bp}}
  return{ok:false,reason:`Not enough beer for the ${lower(t.ind)} in ${TOWNS[t.town].n}: it needs ${t.def.beer}. Build a brewery, or reach a merchant that still has its barrel.`}}
 function execSell(pi,e){const p=S.players[pi];consume(e.bp.takes,pi);let bonus='';
- if(e.bp.merch){S.merchBeer[e.m]--;const b=MERCH[e.m].bonus;if(b.type==='money'){p.money+=b.v;bonus=`+£${b.v}`}else if(b.type==='vp'){p.vp+=b.v;bonus=`+${b.v} VP`}else if(b.type==='develop'){const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);ks.sort((a,b2)=>(p.mat[b2][0].canal&&S.era==='rail')-(p.mat[a][0].canal&&S.era==='rail')||p.mat[a][0].l-p.mat[b2][0].l||(a==='coal'?-1:0));if(ks.length){const d=p.mat[ks[0]].shift();bonus=`free develop of a level ${d.l} ${lower(ks[0])}`}else bonus='no tiles to develop'}else{p.pos=Math.min(99,p.pos+b.v);bonus=`income +${b.v} spaces`}}
+ if(e.bp.merch){S.merchBeer[e.m]--;const b=MERCH[e.m].bonus;if(b.type==='money'){p.money+=b.v;bonus=`+£${b.v}`}else if(b.type==='vp'){p.vp+=b.v;bonus=`+${b.v} VP`}else if(b.type==='develop'&&isHuman(pi)&&!SEARCHING){const ok=Object.keys(IND).some(k=>p.mat[k].length&&!p.mat[k][0].bulb);if(ok){S.pendingDev={pi};bonus='a free develop of your choice'}else bonus='no tiles to develop'}
+ else if(b.type==='develop'){const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);ks.sort((a,b2)=>(p.mat[b2][0].canal&&S.era==='rail')-(p.mat[a][0].canal&&S.era==='rail')||p.mat[a][0].l-p.mat[b2][0].l||(a==='coal'?-1:0));if(ks.length){const d=p.mat[ks[0]].shift();bonus=`free develop of a level ${d.l} ${lower(ks[0])}`}else bonus='no tiles to develop'}else{p.pos=Math.min(99,p.pos+b.v);bonus=`income +${b.v} spaces`}}
  log(`${WHO(pi)} sold the ${lower(e.t.ind)} in ${TOWNS[e.t.town].n} to ${MERCH[e.m].n}${bonus?`, using its beer barrel (${bonus})`:''}.`);
  flip(e.t,pi);
  if(isHuman(pi))coachAdd(`Sold: +${e.t.def.inc} income spaces, ${e.t.def.vp} VP per era.${bonus?` Bonus: ${bonus}.`:''}`)}
@@ -201,7 +208,7 @@ function sellAll(pi){let e;let guard=0;while(guard++<10){const list=S.tiles.filt
 
 /* turns */
 function discard(pi,idxs){const p=S.players[pi];[...idxs].sort((a,b)=>b-a).forEach(i=>p.hand.splice(i,1))}
-function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const p=S.players[cur()];if(S.actionsLeft<=0||p.hand.length===0)endTurn();if(isHuman(actor)&&cur()!==actor&&UNDO.length)UNDO_DEADLINE=Date.now()+UNDO_WINDOW;if(ONLINE&&window.NET)NET.push();render();maybeBot()}
+function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const p=S.players[cur()];if(S.actionsLeft<=0||p.hand.length===0)endTurn();if(isHuman(actor)&&cur()!==actor&&UNDO.length&&S.humans>1){UNDO_DEADLINE=Date.now()+UNDO_WINDOW;S.lockUntil=UNDO_DEADLINE;S.lockBy=actor}if(ONLINE&&window.NET)NET.push();render();maybeBot()}
 function endTurn(){const p=S.players[cur()];p.hand.forEach(c=>delete c.fresh);while(p.hand.length<HAND&&S.deck.length){const c=S.deck.pop();c.fresh=true;p.hand.push(c)}S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}
 function startTurn(){const p=S.players[cur()];S.turnSerial++;if(isHuman(cur())&&p.hand.length)S.myTurns[cur()]++;S.actionsLeft=(S.era==='canal'&&S.round===1)?1:2;
  if(p.hand.length===0){S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}}
@@ -227,7 +234,7 @@ function endEra(){const lines=scoreEra();
 /* bot / hints */
 function hasUnsold(pi){return S.tiles.some(t=>t.owner===pi&&!t.flipped&&SELLABLE.includes(t.ind))}
 function beerAccess(pi){return S.tiles.some(t=>t.ind==='brewery'&&t.owner===pi&&t.cubes>0)||Object.values(S.merchBeer).some(x=>x)}
-function scoreBuild(pi,b){const d=b.def;let s=d.vp*0.8+d.inc*0.6-b.total*0.12;
+function scoreBuild(pi,b){const d=b.def;let s=d.vp*0.8+d.inc*0.6-b.total*0.12;if(b.over!=null){const o=S.tiles.find(x=>x.id===b.over);if(o)s+=o.owner===pi?-(o.flipped?o.def.vp*1.2:o.def.vp*.4):1}
  if(b.ind==='coal'){const board=S.tiles.filter(t=>t.ind==='coal').reduce((a,t)=>a+t.cubes,0);s+=(14-S.mkt.coal)*0.4+1-board*0.6+(reachesMerchant(bfs([b.town]))?2.5:0)}
  if(b.ind==='iron')s+=(10-S.mkt.iron)*0.5+1;
  if(b.ind==='brewery'){const own=S.tiles.filter(t=>t.ind==='brewery'&&t.owner===pi&&t.cubes>0).length;s+=hasUnsold(pi)&&!own?5:own?-3.5:-1}
@@ -251,7 +258,7 @@ function candidates(pi,noJitter){const p=S.players[pi];const C=[];if(!p.hand.len
  if(S.era==='rail'){const stuck=Object.keys(IND).filter(k=>p.mat[k][0]&&p.mat[k][0].canal);if(stuck.length){const e=evalDevelop(pi,stuck.slice(0,2));if(e.ok)C.push({score:3+stuck.slice(0,2).length,desc:`develop past your ${devLabel(pi,e.inds)}`,run(){discard(pi,[spare]);execDevelop(pi,e)}})}}
  C.push({score:0,desc:'pass',run(){discard(pi,[spare]);log(`${WHO(pi)} passed.`)}});
  if(!isHuman(pi)&&!noJitter)C.forEach(c=>c.score+=Math.random()*1.2);return C.sort((a,b)=>b.score-a.score)}
-function maybeBot(){if(S.over||S.modal)return;if(isHuman(cur())){if(ONLINE)return;if(cur()!==S.view){if(S.humans>1){S.modal={handoff:cur()};render()}else S.view=cur()}return}if(ONLINE&&!IS_HOST)return;{clearTimeout(botTimer);botTimer=setTimeout(botAct,900)}}
+function maybeBot(){if(S.over||S.modal)return;if(isHuman(cur())){if(ONLINE)return;if(cur()!==S.view){if(S.humans>1){S.modal={handoff:cur()};render()}else S.view=cur()}return}if(ONLINE&&!IS_HOST)return;{clearTimeout(botTimer);botTimer=setTimeout(botAct,Math.max(900,(S.lockUntil||0)-Date.now()+120))}}
 
 /* ---------- Devious bot: looks ahead and plays to beat the leader ---------- */
 const ROUNDS_PER_ERA={2:10,3:9,4:8};
@@ -271,7 +278,9 @@ function projVP(i){const p=S.players[i],canal=S.era==='canal',rl=roundsLeft(),mv
 function utility(pi){const pv=S.players.map((p,i)=>projVP(i));const others=pv.filter((x,i)=>i!==pi);if(!others.length)return pv[pi];
  const mx=Math.max(...others),avg=others.reduce((a,b)=>a+b,0)/others.length;return pv[pi]-(0.7*mx+0.3*avg)}
 function quiet(fn){const sL=S.log,sCM=CM;try{return fn()}finally{CM=sCM}}
-function searchBotAction(pi){const t0=Date.now(),root=structuredClone(S),realCM=CM;let bestI=0,bestV=-1e9;
+let SEARCHING=false;
+function searchBotAction(pi){SEARCHING=true;try{return searchBotActionInner(pi)}finally{SEARCHING=false}}
+function searchBotActionInner(pi){const t0=Date.now(),root=structuredClone(S),realCM=CM;let bestI=0,bestV=-1e9;
  const K1=14,K2=8,np=S.order[(S.turnIdx+1)%S.order.length];
  try{S=structuredClone(root);const C1=candidates(pi,true).slice(0,K1);
   for(let i=0;i<C1.length;i++){if(Date.now()-t0>2200)break;
@@ -284,16 +293,16 @@ function searchBotAction(pi){const t0=Date.now(),root=structuredClone(S),realCM=
    if(val>bestV){bestV=val;bestI=i}}}
  finally{S=root;CM=realCM}
  return bestI}
-function botAct(){if(S.over||S.modal||isHuman(cur()))return;const pi=cur();let best;if((S.botLevel||'devious')==='devious'){const i=searchBotAction(pi);best=candidates(pi,true)[i]}else best=candidates(pi)[0];CM=[];best.run();flushCoach();afterAction()}
+function botAct(){if(S.over||S.modal||isHuman(cur()))return;if(S.lockUntil&&Date.now()<S.lockUntil){maybeBot();return}const pi=cur();let best;if((S.botLevel||'devious')==='devious'){const i=searchBotAction(pi);best=candidates(pi,true)[i]}else best=candidates(pi)[0];CM=[];best.run();flushCoach();afterAction()}
 
 /* rendering */
 const T=24,STEP=27;
 function gearPath(){let d='';const n=8;for(let i=0;i<n*2;i++){const r=i%2?7.2:9.6;const a0=(i/(n*2))*Math.PI*2,a1=((i+1)/(n*2))*Math.PI*2;const p=a=>`${(12+r*Math.cos(a)).toFixed(2)} ${(12+r*Math.sin(a)).toFixed(2)}`;d+=(i?'L':'M')+p(a0+0.08)+'L'+p(a1-0.08)}return d+'Z M12 9.2a2.8 2.8 0 1 0 0.01 0Z'}
 const DEFS=`<defs>
-<symbol id="ic-coal" viewBox="0 0 24 24"><path fill="currentColor" d="M3.5 18.5l2.6-6.2 5.2.6 1.7 5.6z M11.6 19l1.6-7.4 5.4-1.2 3 6.6-3.2 3.1z M6.6 11.2l1.9-5.4 5.4-.2 1.1 5.6-3.6 1.3z"/></symbol>
-<symbol id="ic-iron" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 19h19l-2.4-5.6H4.9z M6 12.4h12l-1.8-4.6H7.8z"/></symbol>
+<symbol id="ic-coal" viewBox="0 0 24 24"><path fill="currentColor" d="M6.3 10.2l1.5-3.1 2.5.7 1.5-2.4 2.7 1.1 1.9-1.6 2.2 2.6.9 2.7z M3.2 10.8h17.6l-2.3 7.2H5.5z"/><circle cx="8" cy="19.6" r="1.9" fill="currentColor"/><circle cx="16" cy="19.6" r="1.9" fill="currentColor"/></symbol>
+<symbol id="ic-iron" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 7.2h13.6c1.4 1.9 3.5 2.6 5.4 2.6v1.7c-2.6.3-4.5 1.3-5.4 3.1H8.6C8.1 12.9 6.3 11.4 4 11z M9 15.3h6.6v2.2h2.6v2.9H6.4v-2.9H9z"/></symbol>
 <symbol id="ic-brewery" viewBox="0 0 24 24"><path fill="currentColor" d="M4.5 8.5h11v10.2a2.3 2.3 0 0 1-2.3 2.3H6.8a2.3 2.3 0 0 1-2.3-2.3z M15.5 10.5h2.2a3 3 0 0 1 0 6h-2.2v-2h2.1a1 1 0 0 0 0-2h-2.1z M4.2 7.4c0-2.2 1.6-3.4 3.3-2.9 1-1.5 3.3-1.6 4.4-.1 1.8-.6 3.9.6 3.9 3z"/></symbol>
-<symbol id="ic-cotton" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3.5h14v3H5z M5 17.5h14v3H5z M7.5 7.5h9v9h-9z"/><path fill="none" stroke="currentColor" stroke-width="1.2" d="M17 9.5c2.5.5 3.5 3 2.5 5.5"/></symbol>
+<symbol id="ic-cotton" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 21V11l5-4v4l5-4v4l5-4v14z M5 14h2.4v2.6H5z M10 14h2.4v2.6H10z M15 14h2.4v2.6H15z M18.5 3h3v18h-3z"/></symbol>
 <symbol id="ic-goods" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="${gearPath()}"/></symbol>
 <symbol id="ic-pottery" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3h6v2c0 1.2 3.6 2.9 3.6 8 0 4.8-2.8 8-6.6 8s-6.6-3.2-6.6-8c0-5.1 3.6-6.8 3.6-8z"/></symbol>
 <symbol id="ic-barrel" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3h10c2 3 2 15 0 18H7C5 18 5 6 7 3z"/><path stroke="#fff" stroke-width="1.2" opacity=".6" d="M5.8 8h12.4M5.8 16h12.4"/></symbol>
@@ -468,13 +477,16 @@ function handHTML(clickable,marks){const p=S.players[V()];if(!p.hand.length)retu
   return`<div class="hgroup"><div class="hlabel">${title}</div><div class="cards">${items.join('')}</div></div>`};
  return sect('Industry cards',false)+sect('Town cards',true)}
 function matHTML(){const p=S.players[V()];return`<table class="mat">${Object.keys(IND).map(k=>{const d=p.mat[k][0];const need=d?[d.coal?`${d.coal} coal`:'',d.iron?`${d.iron} iron`:''].filter(Boolean).join(', '):'';
- return`<tr><td><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>${IND[k].name}</td><td>${d?`next L${d.l}, £${d.cost}${need?' + '+need:''}`:'none left'}</td><td>${d?`${d.vp} VP, +${d.inc} income, ${d.lk} link pt${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${(d.canal&&S.era==='rail')||(d.rail&&S.era==='canal')?', can\'t build now':''}`:''}</td><td>${p.mat[k].length} left</td></tr>`}).join('')}</table>`}
+ return`<tr><td><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>${IND[k].name}</td><td>${d?`next L${d.l}, £${d.cost}${need?' + '+need:''}`:'none left'}</td><td>${d?`${makesTxt(d,k)}${d.vp} VP, +${d.inc} income, ${d.lk} link pt${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${(d.canal&&S.era==='rail')||(d.rail&&S.era==='canal')?', can\'t build now':''}`:''}</td><td>${p.mat[k].length} left</td></tr>`}).join('')}</table>`}
 
 function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=null;
  if(S.over){const online=typeof ONLINE!=="undefined"&&ONLINE;el.innerHTML=`<p class="step"><b>Game over.</b> The board stays as it ended.</p><div class="row"><button type="button" class="primary" data-act="showResults">Show final standings</button>${online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>'}</div>`;return}
  const p=S.players[V()];
+ if(cur()===V()&&S.lockUntil&&Date.now()<S.lockUntil&&S.lockBy!==V()){el.innerHTML=`<p class="step lockmsg">${esc(WHO(S.lockBy))} can still undo their turn for <b class="lockSecs">${Math.ceil((S.lockUntil-Date.now())/1000)}s</b>. You can play when it runs out.</p><hr class="groove"><h2>Your hand</h2>${handHTML(false)}`;return}
  if(cur()!==V()){el.innerHTML=`<h2>Your hand</h2>${handHTML(false)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
  const M=UI.mode;let h='';
+ if(S.pendingDev&&S.pendingDev.pi===V()){const p=S.players[V()];const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);
+  h+=`<h2>Free develop</h2><p class="step">Gloucester's bonus: remove one tile from your mat for free, with no iron needed. Or skip it.</p><div class="opts">${ks.map(k=>{const cur=p.mat[k][0],nx=p.mat[k][1];return`<button type="button" class="opt" data-act="freeDev" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>${IND[k].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur,k)}</small><small>Next up: ${nx?tileSpec(nx,k):'nothing left of this industry'}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="freeDev" data-k="">Skip the free develop</button></div>`;el.innerHTML=h;return}
  if(!M){h+=`<h2 class="acts-h">Your actions</h2><div class="acts">
   <button type="button" data-act="mode" data-m="build">Build</button><button type="button" data-act="mode" data-m="link">Link</button><button type="button" data-act="mode" data-m="sell">Sell</button><button type="button" data-act="mode" data-m="loan">Loan</button>
   <button type="button" data-act="mode" data-m="develop">Develop</button><button type="button" data-act="mode" data-m="scout">Scout</button><button type="button" data-act="mode" data-m="pass">Pass</button>${coachOn()?'<button type="button" data-act="hint">Hint</button>':''}</div>
@@ -493,7 +505,7 @@ function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=n
   h+=`<div class="row"><button type="button" data-act="cancel">Back</button>${bad?'':`<button type="button" class="primary" data-act="scoutGo" ${UI.scout.length===3?'':'disabled'}>Scout (${UI.scout.length}/3)</button>`}</div>`;el.innerHTML=h;return}
  if(M==='build'&&UI.slotPick){const sp=UI.slotPick,t=TOWNS[sp.b.town];const nm=x=>IND[x].name.toLowerCase();
   h+=`<p class="step">Which space in <b>${esc(t.n)}</b> for your level ${sp.b.def.l} ${lower(sp.b.ind)}? Tap one here or on the map.</p><div class="opts">${sp.b.alts.map(s=>{const left=t.slots.map((ty,i)=>i!==s&&!tileAt(sp.b.town,i)?ty.map(nm).join(' or '):null).filter(Boolean);return`<button type="button" class="opt" data-act="doSlot" data-s="${s}">Space ${s+1}: ${t.slots[s].map(nm).join(' or ')}<small>${left.length?'Leaves open: '+left.join('; '):'Fills the last free space'}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="clearSlot">Back</button></div>`;UI.hiTowns=new Set([sp.b.town]);el.innerHTML=h;return}
- if(M==='build'&&UI.atTown){const at=UI.atTown;h+=`<p class="step">Build in <b>${esc(TOWNS[at.k].n)}</b>:</p><div class="opts">${at.opts.map((o,j)=>`<button type="button" class="opt" data-act="doBuildAt" data-k="${j}">Level ${o.b.def.l} ${lower(o.b.ind)}, £${o.b.total}<small>Uses your "${esc(cardLabel(p.hand[o.ci]))}" card. ${o.b.def.vp} VP, +${o.b.def.inc} income spaces and ${o.b.def.lk} link point${o.b.def.lk===1?'':'s'} once face up${SELLABLE.includes(o.b.ind)?`. Needs ${o.b.def.beer} beer to sell`:''}</small></button>`).join('')}</div><div class="row"><button type="button" data-act="clearAt">Back</button></div>`;UI.hiTowns=new Set([at.k]);el.innerHTML=h;return}
+ if(M==='build'&&UI.atTown){const at=UI.atTown;h+=`<p class="step">Build in <b>${esc(TOWNS[at.k].n)}</b>:</p><div class="opts">${at.opts.map((o,j)=>`<button type="button" class="opt" data-act="doBuildAt" data-k="${j}">Level ${o.b.def.l} ${lower(o.b.ind)}${overTxt(o.b)}, £${o.b.total}<small>Uses your "${esc(cardLabel(p.hand[o.ci]))}" card. ${o.b.def.vp} VP, +${o.b.def.inc} income spaces and ${o.b.def.lk} link point${o.b.def.lk===1?'':'s'} once face up${SELLABLE.includes(o.b.ind)?`. Needs ${o.b.def.beer} beer to sell`:''}</small></button>`).join('')}</div><div class="row"><button type="button" data-act="clearAt">Back</button></div>`;UI.hiTowns=new Set([at.k]);el.innerHTML=h;return}
  if(UI.card===null){
   let marks=null,intro='';
   if(M==='build'){marks=p.hand.map(c=>allBuilds(V(),c).some(b=>b.ok)?'':'dim');UI.hiTowns=new Set(p.hand.flatMap(c=>allBuilds(V(),c).filter(b=>b.ok).map(b=>b.town)));intro='Tap a highlighted town on the map to build there, or choose the card to spend. Faded cards have no legal build right now (tap one to see why).'}
@@ -510,7 +522,7 @@ function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=n
  let opts=[],why=[];
  if(M==='build'){const all=allBuilds(V(),card);const ok=dedupe(all.filter(b=>b.ok)).sort((a,b)=>scoreBuild(V(),b)-scoreBuild(V(),a));UI.opts=ok;UI.hiTowns=new Set(ok.map(b=>b.town));
   opts=ok.map((b,k)=>{const extra=[b.cp.takes.length||b.cp.mkt?`coal from ${b.cp.takes.map(x=>TOWNS[x.t.town].n).concat(b.cp.mkt?['market']:[]).join(', ')}`:'',b.ip.takes.length||b.ip.mkt?`iron from ${b.ip.takes.map(x=>POSS(x.t.owner)+' ironworks').concat(b.ip.mkt?['market']:[]).join(', ')}`:''].filter(Boolean).join('; ');
-   return`<button type="button" class="opt" data-act="doBuild" data-k="${k}">Level ${b.def.l} ${lower(b.ind)} in ${TOWNS[b.town].n}, £${b.total}<small>${b.def.vp} VP, +${b.def.inc} income spaces and ${b.def.lk} link point${b.def.lk===1?'':'s'} once face up${SELLABLE.includes(b.ind)?`. Needs ${b.def.beer} beer to sell`:''}${extra?'. Uses '+extra:''}</small></button>`});
+   return`<button type="button" class="opt" data-act="doBuild" data-k="${k}">Level ${b.def.l} ${lower(b.ind)} in ${TOWNS[b.town].n}${overTxt(b)}, £${b.total}<small>${b.def.vp} VP, +${b.def.inc} income spaces and ${b.def.lk} link point${b.def.lk===1?'':'s'} once face up${SELLABLE.includes(b.ind)?`. Needs ${b.def.beer} beer to sell`:''}${extra?'. Uses '+extra:''}</small></button>`});
   if(!ok.length)why=buildWhy(V(),card)}
  if(M==='link'){const es=LINKS.map(l=>evalLink(V(),l));const ok=es.filter(e=>e.ok).sort((a,b)=>scoreLink(V(),b)-scoreLink(V(),a));UI.opts=ok;UI.legalLinks=new Set(ok.map(e=>e.l.id));
   opts=ok.map((e,k)=>`<button type="button" class="opt" data-act="doLink" data-k="${k}">${nodeName(e.l.a)} to ${nodeName(e.l.b)}, £${e.total}<small>Worth ${icons(e.l.a)+icons(e.l.b)} VP if the era ended now</small></button>`);
@@ -593,8 +605,26 @@ function renderLogModal(){const ov=document.getElementById('logov');if(!ov)retur
  if(typeof skinDOM==='function')skinDOM(ov);const l=ov.querySelector('.flog-list');l.scrollTop=(!old||atBottom)?l.scrollHeight:prevTop}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&LOGOPEN){LOGOPEN=false;renderLogModal()}});
 function coachOn(){return!!(S&&S.coachOn)}
-function render(){applyColours();renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
-function renderCore(){const ss=document.getElementById('styleSel');const me=V(),myC=S.colors?S.colors[me]:null,canPick=S.colors&&me>=0&&me<S.players.length&&isHuman(me);if(ss)ss.innerHTML=`<div class="stylesel setsel"><span>Setting</span><button type="button" class="${SETTING==='classic'?'on':''}" data-act="setSetting" data-v="classic">Classic</button><button type="button" class="${SETTING==='space'?'on':''}" data-act="setSetting" data-v="space">Space</button></div><div class="stylesel"><span>Map style</span>${THEMES.map(([k,n])=>`<button type="button" class="${THEME===k?'on':''}" data-act="setTheme" data-t="${k}">${n}</button>`).join('')}</div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
+
+/* ---------- Sound effects (Web Audio, nothing to download) ---------- */
+const SOUND={sfx:(()=>{try{return localStorage.getItem('bb-sfx')!=='off'}catch(x){return true}})()};
+let AC=null,SFXG=null,LAST_LOG_LEN=-1,LAST_CHIME=-1;
+function audioReady(){if(AC)return true;const C=window.AudioContext||window.webkitAudioContext;if(!C)return false;AC=new C();SFXG=AC.createGain();SFXG.gain.value=.5;SFXG.connect(AC.destination);return true}
+document.addEventListener('pointerdown',()=>{if(!audioReady())return;if(AC.state==='suspended')AC.resume()},{passive:true});
+function tone(f,t,dur,type,vol,dest,f2){const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest||SFXG);o.start(t);o.stop(t+dur+.05)}
+function noise(t,dur,vol,freq){const n=AC.createBufferSource(),len=Math.floor(AC.sampleRate*dur),buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);n.buffer=buf;const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=freq||900;f.Q.value=1.2;const g=AC.createGain();g.gain.value=vol;n.connect(f);f.connect(g);g.connect(SFXG);n.start(t)}
+function sfx(kind,vol){if(!SOUND.sfx||!AC||AC.state!=='running')return;const t=AC.currentTime+.01,v=vol||1;
+ if(kind==='build'){noise(t,.12,.5*v,500);tone(150,t,.22,'sine',.6*v,null,80);tone(980,t+.03,.12,'triangle',.12*v)}
+ else if(kind==='link'){noise(t,.09,.35*v,1400);noise(t+.13,.09,.3*v,1200);tone(330,t,.25,'triangle',.18*v,null,440)}
+ else if(kind==='sell'){tone(1318,t,.12,'square',.08*v);tone(1760,t+.09,.35,'triangle',.18*v);tone(2637,t+.09,.25,'sine',.06*v)}
+ else if(kind==='turn'){tone(880,t,1.3,'sine',.22*v);tone(1760,t,.6,'sine',.05*v);tone(1174.7,t+.2,1.4,'sine',.2*v);tone(2349,t+.2,.6,'sine',.04*v)}}
+function soundFromLog(){if(!S||!S.log)return;const n=S.log.length;if(LAST_LOG_LEN<0||n<LAST_LOG_LEN||n-LAST_LOG_LEN>14){LAST_LOG_LEN=n;return}
+ const fresh=S.log.slice(LAST_LOG_LEN);LAST_LOG_LEN=n;let k=0;const me=V(),myName=S.players[me]?S.players[me].name:'';
+ for(const t of fresh){let kind=null;if(/ built a level /.test(t)||/ overbuilt /.test(t))kind='build';else if(/ built a (canal|rail) | added a second rail /.test(t))kind='link';else if(/ sold the /.test(t))kind='sell';if(!kind)continue;
+  const mine=t.startsWith('You ')||(myName&&t.startsWith(myName+' '));setTimeout(()=>sfx(kind,mine?1:.5),k*160);if(++k>=3)break}}
+function turnChime(){if(!S||S.over||S.modal)return;if(isHuman(cur())&&cur()===V()&&S.turnSerial!==LAST_CHIME){LAST_CHIME=S.turnSerial;sfx('turn')}}
+function render(){applyColours();try{soundFromLog();turnChime()}catch(x){}renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
+function renderCore(){const ss=document.getElementById('styleSel');if(ss&&!(document.activeElement&&ss.contains(document.activeElement)))ss.innerHTML=`<div class="setgrid"><label>Sound effects<select data-chg="sfx" aria-label="Sound effects"><option value="on"${SOUND.sfx?' selected':''}>On</option><option value="off"${SOUND.sfx?'':' selected'}>Off</option></select></label><label>Setting<select data-chg="setting" aria-label="Setting"><option value="classic"${SETTING==='classic'?' selected':''}>Classic</option><option value="space"${SETTING==='space'?' selected':''}>Space</option></select></label><label>Map style<select data-chg="theme" aria-label="Map style">${THEMES.map(([k,n])=>`<option value="${k}"${THEME===k?' selected':''}>${n}</option>`).join('')}</select></label></div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
  nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
  $('latest').innerHTML=S.log.slice(-4).reverse().map(t=>`<li>${esc(t)}</li>`).join('');renderFullLog();
  {const cb=$('coach');if(coachOn()){cb.hidden=false;cb.innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`}else{cb.hidden=true;cb.innerHTML=''}}
@@ -605,16 +635,17 @@ function renderCore(){const ss=document.getElementById('styleSel');const me=V(),
 
 /* input */
 function snap(){UNDO_DEADLINE=0;UNDO.push(JSON.stringify(S));if(UNDO.length>40)UNDO.shift()}
-let UNDO_DEADLINE=0;const UNDO_WINDOW=6000;
+let UNDO_DEADLINE=0;const UNDO_WINDOW=10000;
 function renderUndo(){const el=document.getElementById('undo');if(!el)return;if(UNDO_DEADLINE&&Date.now()>=UNDO_DEADLINE){UNDO=[];UNDO_DEADLINE=0}
  if(!UNDO.length){el.innerHTML='';return}const secs=UNDO_DEADLINE?Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000)):0;const label=`Undo ${S.humans>1?'last move':'my last move'}`;
  el.innerHTML=`<button type="button" class="undo${secs?' timed':''}" data-act="undo">${label}${secs?` <span class="usecs">${secs}s</span>`:''}${secs?`<span class="ubar" style="--s:${((UNDO_DEADLINE-Date.now())/UNDO_WINDOW).toFixed(3)};animation-duration:${UNDO_DEADLINE-Date.now()}ms"></span>`:''}</button>`;if(typeof skinDOM==='function')skinDOM(el)}
-setInterval(()=>{if(!UNDO_DEADLINE)return;if(Date.now()>=UNDO_DEADLINE){renderUndo();return}const s=document.querySelector('.usecs');if(s)s.textContent=Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000))+'s';else renderUndo()},250);
+setInterval(()=>{if(S&&S.lockUntil){const ls=document.querySelector('.lockSecs');if(Date.now()>=S.lockUntil){S.lockUntil=0;render()}else if(ls)ls.textContent=Math.ceil((S.lockUntil-Date.now())/1000)+'s'}if(!UNDO_DEADLINE)return;if(Date.now()>=UNDO_DEADLINE){renderUndo();return}const s=document.querySelector('.usecs');if(s)s.textContent=Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000))+'s';else renderUndo()},250);
 function firstLink(e){snap();CM=[];discard(V(),[UI.card]);execLink(V(),e);if(S.era==='rail'&&bestLink2(V())){flushCoach();resetUI();UI.mode='link2';render()}else{flushCoach();resetUI();afterAction()}}
-function tileSpec(d){const need=[d.coal?`${d.coal} coal`:'',d.iron?`${d.iron} iron`:''].filter(Boolean).join(' + ');return`level ${d.l}: £${d.cost}${need?' + '+need:''}, ${d.vp} VP, +${d.inc} income, ${d.lk} link point${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${d.canal?', canal era only':''}${d.rail?', rail era only':''}${d.bulb?', can\'t be developed':''}`}
+function makesTxt(d,ind){return ind==='coal'?`makes ${d.prod} coal, `:ind==='iron'?`makes ${d.prod} iron, `:ind==='brewery'?`makes ${d.rail||S.era==='rail'?2:1} beer, `:''}
+function tileSpec(d,ind){const need=[d.coal?`${d.coal} coal`:'',d.iron?`${d.iron} iron`:''].filter(Boolean).join(' + ');return`level ${d.l}: £${d.cost}${need?' + '+need:''}, ${ind?makesTxt(d,ind):''}${d.vp} VP, +${d.inc} income, ${d.lk} link point${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${d.canal?', canal era only':''}${d.rail?', rail era only':''}${d.bulb?', can\'t be developed':''}`}
 function devOptsHTML(list,act){const p=S.players[V()];return list.map((e,k)=>{const ind=e.inds[0],cur=p.mat[ind][0],nx=p.mat[ind][1];
  const iron=e.ip.takes.length?`Iron from ${POSS(e.ip.takes[0].t.owner)} ironworks in ${TOWNS[e.ip.takes[0].t.town].n} (free)`:`Iron from the market: £${e.total}`;
- return`<button type="button" class="opt" data-act="${act}" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${ind}"/></svg>${IND[ind].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur)}</small><small>Next up: ${nx?tileSpec(nx):'nothing left of this industry'}</small><small>${iron}. ${p.mat[ind].length-1} left after this.</small></button>`})}
+ return`<button type="button" class="opt" data-act="${act}" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${ind}"/></svg>${IND[ind].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur,ind)}</small><small>Next up: ${nx?tileSpec(nx,ind):'nothing left of this industry'}</small><small>${iron}. ${p.mat[ind].length-1} left after this.</small></button>`})}
 function firstDevelop(e){snap();CM=[];discard(V(),[UI.card]);execDevelop(V(),e);const more=Object.keys(IND).some(k=>evalDevelop(V(),[k]).ok);if(!more){const p=S.players[V()],ip=ironPlan(V(),1);coachAdd(p.money<ip.cost?`No second develop: another iron would cost £${ip.cost} and you have £${p.money}.`:'No second develop: nothing else on your mat can be developed.')}flushCoach();resetUI();if(more){UI.mode='dev2';render()}else afterAction()}
 function YOURS(i){return i===V()?'your':POSS(i)}
 function beerAltLabel(o){if(o.merch){const b=MERCH[o.m].bonus;return{t:`${MERCH[o.m].n}'s beer barrel`,s:`Bonus: ${b.type==='money'?'+£'+b.v:b.type==='vp'?'+'+b.v+' VP':b.type==='income'?'+'+b.v+' income spaces':'a free develop'}`}}
@@ -626,6 +657,7 @@ function sellBeerAlts(pi,t){if(t.def.beer!==1)return[];const d=bfs([t.town]);con
 function sellNow(e){CM=[];if(UI.card!=='spent'){snap();discard(V(),[UI.card]);UI.card='spent'}execSell(V(),e);UI.sold++;UI.beerPick=null;
  const more=S.tiles.filter(t=>t.owner===V()&&!t.flipped&&SELLABLE.includes(t.ind)).some(t=>evalSell(V(),t).ok);
  if(more)coachAdd('You can sell another in this action.');flushCoach();
+ if(S.pendingDev&&S.pendingDev.pi===V()){UI.afterDevMore=more;render();return}
  if(!more){resetUI();afterAction()}else render()}
 function startBuild(b,ci){if(b.alts&&b.alts.length>1){UI.slotPick={b,ci};render();return}userAction([ci],()=>execBuild(V(),b))}
 function userAction(cards,fn){if(UI.mode!=='link2'&&UI.mode!=='dev2')snap();CM=[];discard(V(),cards);fn();flushCoach();resetUI();afterAction()}
@@ -658,6 +690,7 @@ const H={
  scoutGo(){if(UI.scout.length!==3)return;const c=[...UI.scout];userAction(c,()=>execScout(V()))},
  setSetting(el){setSetting(el.dataset.v)},
  setColour(el){if(!S.colors)return;const me=V(),c=el.dataset.c,other=S.colors.indexOf(c);if(other===me)return;if(other>=0)S.colors[other]=S.colors[me];S.colors[me]=c;if(typeof ONLINE!=='undefined'&&ONLINE&&window.NET)NET.push();render()},
+ toggleSfx(){SOUND.sfx=!SOUND.sfx;try{localStorage.setItem('bb-sfx',SOUND.sfx?'on':'off')}catch(x){}render();if(SOUND.sfx&&audioReady()){AC.resume();sfx('build')}},
  setTheme(el){THEME=el.dataset.t;try{localStorage.setItem('bb-theme',THEME)}catch(x){}render()},
  dismissNudge(){NUDGE_DISMISSED=true;renderNudge()},
  openChart(){CHART.open=true;hideTip();renderChart()},
@@ -669,6 +702,9 @@ const H={
  playAgain(){S.modal={setup:true};render()},
  openLog(){LOGOPEN=true;hideTip();renderLogModal()},
  closeLog(){LOGOPEN=false;renderLogModal()},
+ freeDev(el){const pd=S.pendingDev;if(!pd||pd.pi!==V())return;const p=S.players[pd.pi],k=el.dataset.k;CM=[];
+  if(k&&p.mat[k].length&&!p.mat[k][0].bulb){const d=p.mat[k].shift();log(`${WHO(pd.pi)} used Gloucester's free develop to remove a level ${d.l} ${lower(k)}.`);coachAdd(`Free develop: next ${lower(k)} is ${p.mat[k][0]?'level '+p.mat[k][0].l:'none'}.`)}else log(`${WHO(pd.pi)} skipped Gloucester's free develop.`);
+  S.pendingDev=null;flushCoach();const more=UI.afterDevMore;UI.afterDevMore=null;if(more)render();else{resetUI();afterAction()}},
  undo(){if(!UNDO.length)return;if(UNDO_DEADLINE&&Date.now()>=UNDO_DEADLINE){UNDO=[];UNDO_DEADLINE=0;renderUndo();return}UNDO_DEADLINE=0;clearTimeout(botTimer);S=JSON.parse(UNDO.pop());resetUI();S.coach='Move undone.';hideTip();if(ONLINE){S.modal=null;NET.push(true)}render();maybeBot()},
  hint(){if(!coachOn())return;let c;try{const i=searchBotAction(V());c=candidates(V(),true)[i]}catch(x){c=candidates(V())[0]}S.coach=`Suggestion: ${c.desc}.`;render()},
  closeModal(){if(ONLINE){if(S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render();maybeBot();return}if(S.over){S.modal={setup:true};render();return}S.modal=null;render();maybeBot()},
@@ -688,7 +724,7 @@ function townTip(k){const t=TOWNS[k],pi=V(),p=S.players[pi];let h=`<b>${esc(t.n)
  if(S.over||!p.hand.length)return h;
  const best={};const fails=[];p.hand.forEach(c=>allBuilds(pi,c).forEach(b=>{if(b.town!==k)return;if(b.ok){const cur=best[b.ind];if(!cur||b.total<cur.total)best[b.ind]={...b,cl:cardLabel(c)}}else fails.push(b.reason)}));
  const opts=Object.values(best);const head=isHuman(cur())&&cur()===pi?'You can build here now:':'With your hand, on your turn you could build:';
- if(opts.length)h+=`<div class="t-h">${head}</div><ul>${opts.map(b=>`<li>Level ${b.def.l} ${lower(b.ind)}, £${b.total}${SELLABLE.includes(b.ind)?`, sells with ${b.def.beer} beer`:''} (${esc(b.cl)} card)</li>`).join('')}</ul>`;
+ if(opts.length)h+=`<div class="t-h">${head}</div><ul>${opts.map(b=>`<li>Level ${b.def.l} ${lower(b.ind)}${overTxt(b)}, £${b.total}${SELLABLE.includes(b.ind)?`, sells with ${b.def.beer} beer`:''} (${esc(b.cl)} card)</li>`).join('')}</ul>`;
  else{const free=t.slots.some((s,i)=>!tileAt(k,i));let why;if(!free)why='Every space here is taken.';else if(!fails.length)why='No card in your hand matches these spaces.';else{const nw=fails.every(r=>/isn't in your network|only builds in/.test(r));why=nw?(t.farm?`It isn't in your network. ${k==='farmB'?'The Kidderminster to Worcester link connects it':'Link it to Cannock'}, then use a Brewery or Wild industry card.`:`No card reaches it: you'd need a ${esc(t.n)} card, or a link into it so an industry card works.`):topReasons(fails.filter(r=>!/only builds in|Wrong industry/.test(r)))[0]||topReasons(fails)[0]}
   h+=`<div class="t-h t-no">You can't build here right now.</div><div>${esc(why)}</div>`}
  return h}
@@ -719,7 +755,7 @@ document.addEventListener('click',e=>{if(tipPinned&&!e.target.closest('#map'))hi
 function cardTip(card){const pi=V();const ok=dedupe(allBuilds(pi,card).filter(b=>b.ok)).sort((a,b)=>TOWNS[a.town].n.localeCompare(TOWNS[b.town].n)||a.total-b.total);
  let h=`<b>${esc(cardLabel(card))}</b>`;
  if(card.t==='loc')h+=`<div>Builds anything that fits in ${esc(TOWNS[card.k].n)}, even outside your network.</div>`;else if(card.t==='ind')h+=`<div>Builds ${card.k==='cg'?'a cotton mill or manufacturer':card.k==='iron'?'an ironworks':'a '+lower(card.k)} anywhere in your network.</div>`;else if(card.t==='wloc')h+='<div>Builds anything in any town.</div>';else h+='<div>Builds any industry in your network.</div>';
- if(ok.length){h+=`<div class="t-h">You can build:</div><ul>${ok.slice(0,9).map(b=>`<li>${esc(TOWNS[b.town].n)}: level ${b.def.l} ${lower(b.ind)}, £${b.total}${SELLABLE.includes(b.ind)?`, sells with ${b.def.beer} beer`:''}</li>`).join('')}${ok.length>9?`<li>and ${ok.length-9} more</li>`:''}</ul>`}
+ if(ok.length){h+=`<div class="t-h">You can build:</div><ul>${ok.slice(0,9).map(b=>`<li>${esc(TOWNS[b.town].n)}: level ${b.def.l} ${lower(b.ind)}${overTxt(b)}, £${b.total}${SELLABLE.includes(b.ind)?`, sells with ${b.def.beer} beer`:''}</li>`).join('')}${ok.length>9?`<li>and ${ok.length-9} more</li>`:''}</ul>`}
  else h+=`<div class="t-h t-no">Nothing it can build right now.</div><div>${esc(buildWhy(pi,card)[0])}</div>`;
  h+='<div class="sub" style="margin-top:4px">Any card can also pay for a link, sale, loan, develop or pass.</div>';return h}
 $('controls').addEventListener('mouseover',e=>{const c=e.target.closest('[data-hi]');if(!c)return;const card=S.players[V()].hand[+c.dataset.hi];if(!card)return;
@@ -727,5 +763,9 @@ $('controls').addEventListener('mouseover',e=>{const c=e.target.closest('[data-h
  if(tipPinned||!matchMedia('(hover: hover)').matches)return;const t=$('tip');t.innerHTML=cardTip(card);skinDOM(t);tipKey='c:'+c.dataset.hi;t.hidden=false;const r=c.getBoundingClientRect(),tr=t.getBoundingClientRect();let lx=r.left-tr.width-12,ly=r.top;if(lx<8)lx=Math.min(innerWidth-tr.width-8,r.left);if(lx===r.left||lx<8)ly=r.bottom+8;if(ly+tr.height>innerHeight-8)ly=Math.max(8,innerHeight-tr.height-8);t.style.left=lx+'px';t.style.top=ly+'px'});
 $('controls').addEventListener('pointerdown',()=>{if(tipKey&&tipKey.startsWith('c:'))hideTip()});
 $('controls').addEventListener('mouseout',e=>{const c=e.target.closest('[data-hi]');if(!c||c.contains(e.relatedTarget))return;UI.hoverTowns=null;$('map').innerHTML=mapSVG();if(!tipPinned&&tipKey&&tipKey.startsWith('c:'))hideTip()});
+document.addEventListener('change',e=>{const s=e.target.closest('select[data-chg]');if(!s)return;const v=s.value;s.blur();
+ if(s.dataset.chg==='sfx'){if((v==='on')!==SOUND.sfx)H.toggleSfx()}
+ else if(s.dataset.chg==='setting'){if(v!==SETTING)setSetting(v)}
+ else if(s.dataset.chg==='theme'){H.setTheme({dataset:{t:v}})}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(H[a])H[a](el)});
 newGame(2);S.modal={setup:true};render();
