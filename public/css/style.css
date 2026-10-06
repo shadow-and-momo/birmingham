@@ -328,6 +328,20 @@ details p{margin:8px 0;font-size:14px}
 .fname{flex:1;min-width:0}.fname b{display:block;font-size:16px}.fname small{color:var(--muted);font-size:12px;line-height:1.35}
 .fvp{flex:none;font:700 24px Oswald,sans-serif;text-align:right;line-height:1}.fvp small{display:block;font:500 11px "Work Sans",sans-serif;color:var(--muted)}
 .fnote{font-size:12px!important;color:var(--muted);margin:8px 0 4px!important}
+.fbox.wide{max-width:640px}
+.fpts{background:#F4EBD5;color:#2B2724;border:1px solid #D2A853;border-radius:10px;padding:12px 12px 10px;margin:10px 0;text-align:left}
+.fptitle{font-family:Georgia,'Times New Roman',serif;font-size:17px;color:#33573B;margin-bottom:6px}
+.pbrow{display:flex;align-items:center;gap:8px;margin:7px 0}
+.pbname{width:118px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pbname i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.pbtrack{flex:1;min-width:0}.pbbar{display:flex;height:26px;border-radius:5px;overflow:hidden}
+.pbseg{border:0;border-right:1px solid #F4EBD5;padding:0;margin:0;min-width:16px;font-size:11px;cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;line-height:1}.pbseg:last-child{border-right:0}
+.pbseg.on{outline:2px solid #BF3B2B;outline-offset:-2px}
+.s0{background:#58A9E0;color:#04342C}.s1{background:#3E6A8C;color:#F4EBD5}.s2{background:#D2A853;color:#2B2724}.s3{background:#2B2724;color:#F4EBD5}.s4{background:#BF3B2B;color:#F4EBD5}
+.pbtot{width:34px;text-align:right;font-weight:700;font-size:16px;color:#33573B}
+.pbinfo{background:#FFFDF6;border:1px solid #E3D5AE;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px;line-height:1.55}.pbinfo>b{color:#33573B}.pbinfo small{display:block;color:#866219;font-size:12px;margin-top:2px}
+.pbkey{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:#3F6A47;margin-top:8px}.pbkey i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+@media (max-width:520px){.pbname{width:78px}}
+
 .fconf{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .fconf i{position:absolute;top:-12px;width:8px;height:13px;border-radius:2px;opacity:0;animation:fall linear infinite}
 @keyframes fall{0%{opacity:0;transform:translateY(0) rotate(0)}8%{opacity:1}100%{opacity:.9;transform:translateY(105vh) rotate(540deg)}}
