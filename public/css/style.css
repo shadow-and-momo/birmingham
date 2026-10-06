@@ -195,6 +195,20 @@ details p{margin:8px 0;font-size:14px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}}
 :root[data-theme="dark"] .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}
 .acts-h{margin-top:4px}
+.mpair{display:flex;gap:22px;width:100%;align-items:flex-start}
+.mblock.v{width:auto;margin:2px 0}
+.mblock.v .mnext{font-size:12px;color:var(--muted);margin-bottom:4px}
+.mcol{display:flex;flex-direction:column;gap:3px}
+.mrow{display:flex;align-items:center;gap:4px}
+.mrow .mp{width:20px;font-size:10.5px;color:var(--muted);text-align:right;margin-right:2px}
+/* grooved rows and subtle column dividers in Your next tiles */
+.mat{border-collapse:separate;border-spacing:0}
+.mat td{border-bottom:1px solid rgba(0,0,0,.15)!important;border-top:1px solid rgba(255,255,255,.55)}
+.mat tr:first-child td{border-top:0}
+.mat tr:last-child td{border-bottom:0!important}
+.mat td+td{border-left:1px solid rgba(0,0,0,.08);box-shadow:inset 1px 0 0 rgba(255,255,255,.45)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mat td{border-bottom-color:rgba(0,0,0,.55)!important;border-top-color:rgba(255,255,255,.06)}:root:not([data-theme="light"]) .mat td+td{border-left-color:rgba(0,0,0,.45);box-shadow:inset 1px 0 0 rgba(255,255,255,.05)}}
+:root[data-theme="dark"] .mat td{border-bottom-color:rgba(0,0,0,.55)!important;border-top-color:rgba(255,255,255,.06)}:root[data-theme="dark"] .mat td+td{border-left-color:rgba(0,0,0,.45);box-shadow:inset 1px 0 0 rgba(255,255,255,.05)}
 .setgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
 .setgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 .setgrid select{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;min-height:36px;padding:4px 6px;width:100%;cursor:pointer}

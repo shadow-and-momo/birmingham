@@ -32,6 +32,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Automated tests for full 2-, 3- and 4-player games, the card deck and the player mats.
 
 ### Changed
+- **Your next tiles** uses grooved row lines and subtle dividers between columns.
 - **Settings as dropdowns**: Sound effects, Setting and Map style sit side by side as compact dropdowns in the left column.
 - **Clearer icons**: the coal mine is now a mine cart, the ironworks an anvil, and the cotton mill a factory with a sawtooth weaving-shed roof, so they don't get confused with the ironworks and brewery.
 - **Tile summaries show what tiles produce** (for example "makes 3 coal") in Your next tiles and develop options.
