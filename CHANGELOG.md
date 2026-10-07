@@ -5,6 +5,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Second rail points.** When choosing the beer for a second rail, the screen shows what the rail is worth if the era ended now, on each option, including when using a brewery's last beer flips it and adds link points.
 - **Canal era score screen.** "Halfway there": each player's canal-era points as a bar split into canal links and face-up tiles (tap a segment for every link and tile), plus what changes now: canals removed, your level 1 tiles that are removed (named), merchant beer refilled, and a new hand with your income.
 - **Show all points** on the final standings. A bar for each player split into canal links, canal tiles, rail links, rail tiles (and merchant bonuses), in the board's colours. Tap a segment to list every link and tile in it with its points.
 - **Overbuilding.** Replace your own tile with a higher level of the same industry, or another player's coal mine or ironworks with a higher level when there's none of that resource left on the board or in the market. Overbuild options are labelled in the build list. Bots overbuild too.
@@ -56,6 +57,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Code split into separate files (`data.js`, `engine.js`, `net.js`, `style.css`) to make contributing easier.
 
 ### Fixed
+- **Choosing which merchant to sell to.** A good connected to more than one buyer now lists every merchant (with its beer bonus), instead of only the one with the most beer. Selling pottery from Coventry can go to Oxford or Gloucester.
 - The game code and invite link now always sit at the bottom of the left column, and the page itself is never cached, so updates show up straight away.
 - **Gloucester's free develop** now lets you choose which tile to remove (or skip it), instead of picking automatically. Bots still choose for themselves.
 - **Lightbulb rule**: pottery I and III can't be developed, including by Gloucester's free develop.
