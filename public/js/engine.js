@@ -225,9 +225,9 @@ function scoreEra(){const r=S.players.map(()=>({links:0,tiles:0,li:[],ti:[]}));S
  const lines=S.players.map((p,i)=>`${WHO(i)}: ${r[i].links} from links, ${r[i].tiles} from face-up tiles. Total ${p.vp} VP.`);
  log(`${S.era==='canal'?'Canal':'Rail'} era scored. ${lines.join(' ')}`);return lines}
 function endEra(){const lines=scoreEra();
- if(S.era==='canal'){S.links=[];S.tiles=S.tiles.filter(t=>t.def.l!==1);for(const m in MERCH)S.merchBeer[m]=S.merchTiles[m].filter(t=>t!=='blank').length;S.era='rail';S.round=1;S.deck=buildDeck(S.players.length);
+ if(S.era==='canal'){const lost=S.players.map((p,i)=>S.tiles.filter(t=>t.owner===i&&t.def.l===1).map(t=>`${IND[t.ind].name}, ${nodeName(t.town)}`));ERASEL=null;S.links=[];S.tiles=S.tiles.filter(t=>t.def.l!==1);for(const m in MERCH)S.merchBeer[m]=S.merchTiles[m].filter(t=>t!=='blank').length;S.era='rail';S.round=1;S.deck=buildDeck(S.players.length);
   S.players.forEach(p=>{p.hand=[];for(let i=0;i<HAND;i++)p.hand.push(S.deck.pop())});S.turnIdx=0;
-  S.modal={title:'Canal era scored',lines:[...lines,'All canals and level 1 tiles are now removed, and merchant beer is refilled. Your income stays.'],btn:'Start the rail era'};
+  S.modal={eraEnd:true,lost,title:'Canal era scored',lines:[...lines,'All canals and level 1 tiles are now removed, and merchant beer is refilled. Your income stays.'],btn:'Start the rail era'};
   log('Rail era begins.');coach('Rail era: canals and level 1 tiles are gone, merchant beer is refilled. Rails cost £5 and a coal. Breweries make 2 beer.');startTurn()}
  else{S.over=true;const w=finalRank()[0];S.modal={final:true,title:solo(w)?'You win':`${WHO(w)} wins`,lines:lines,btn:'Close'}}}
 
@@ -454,14 +454,17 @@ function mktBlock(k){const P=PRICES[k],n=P.length,c=S.mkt[k],cols=n/2;
  const prices=Array.from({length:cols},(_,j)=>`<span>£${P[j*2]}</span>`).join('');
  const next=c>0?`next £${mktCost(k,1)}`:`empty, £${FALL[k]} each`;
  return`<div class="mblock"><div class="mhead">${k==='coal'?'Coal':'Iron'} market <span class="mnext">${c} left · ${next}</span></div><div class="mdots" style="grid-template-columns:repeat(${cols},14px)" role="img" aria-label="${k} market: ${c} of ${n} cubes left">${dots}</div><div class="mprices" style="grid-template-columns:repeat(${cols},14px)">${prices}</div></div>`}
+var TURN_TXT='';
+function hpair(a,b,cls){return`<h2 class="hpair">${a}<span class="vgroove" aria-hidden="true"></span><span class="hmeta ${cls||''}">${b}</span></h2>`}
+function actsLeftTxt(){return`${S.actionsLeft} action${S.actionsLeft>1?'s':''} left`}
+function actsMeta(){const per=ROUNDS_PER_ERA[S.players.length]||8;return`Round ${Math.min(S.round,per)} of ${per}<span class="vgroove" aria-hidden="true"></span><span class="you">${actsLeftTxt()}</span>`}
+function deckTxt(){return`${S.deck.length} card${S.deck.length===1?'':'s'} left in deck`}
 function renderStatus(){const me=isHuman(cur());
  const turn=S.over?'Game over':me?`${(ONLINE?cur()===V():S.humans===1)?'Your':WHO(cur())+"'s"} turn: ${S.actionsLeft} action${S.actionsLeft>1?'s':''} left`:`${WHO(cur())} is taking its turn`;
  const mp=k=>S.mkt[k]>0?`£${mktCost(k,1)} (${S.mkt[k]} left)`:`£${FALL[k]} (empty)`;
- $('status').innerHTML=`<div class="sub">${S.era==='canal'?'Canal':'Rail'} era, round ${S.round}. Cards left in deck: ${S.deck.length}</div>
- <div class="turn ${S.over?'':me?'you':'bot'}">${turn}</div>
- <div class="stats">
-  ${S.order.map((i,k)=>[S.players[i],i,k]).map(([p,i,k])=>`<div class="pl c${i}${!S.over&&cur()===i?' now':''}"><div class="nm"><span class="tpos" title="Turn order this round">${["1st","2nd","3rd","4th"][k]}</span>${esc(p.name)}${isHuman(i)?'':' <span class="bottag">bot</span>'}</div><span class="big">£${p.money}</span> cash<br>Income £${incOf(p)}/round (space ${p.pos})<br>${p.vp} VP banked${p.loans?`, ${p.loans} loan${p.loans>1?'s':''}`:''}${isHuman(i)?'':`, ${p.hand.length} cards`}</div>`).join('')}
-  <div class="mkts">${mktBlock('coal')}${mktBlock('iron')}<hr class="groove"><span>Spent this round: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${S.spent[i]}`).join(', ')}</span></div>
+ TURN_TXT=turn;$('status').innerHTML=`<div class="stats">
+  ${S.order.map((i,k)=>[S.players[i],i,k]).map(([p,i,k])=>`<div class="pl c${i}${!S.over&&cur()===i?' now':''}"><div class="nm"><span class="tpos" title="Turn order this round">${["1st","2nd","3rd","4th"][k]}</span>${esc(p.name)}${isHuman(i)?'':' <span class="bottag">bot</span>'}</div><div class="cashrow"><span><span class="big">£${p.money}</span> cash</span><span class="spent" title="Spent this round. Whoever spends least goes first next round.">spent £${S.spent[i]}</span></div>Income £${incOf(p)}/round (space ${p.pos})<br>${p.vp} VP banked${p.loans?`, ${p.loans} loan${p.loans>1?'s':''}`:''}${isHuman(i)?'':`, ${p.hand.length} cards`}</div>`).join('')}
+  <div class="mkts">${mktBlock('coal')}${mktBlock('iron')}</div>
  </div>`}
 function cardIcons(c){if(c.t==='ind')return(c.k==='cg'?['cotton','goods']:[c.k]).map(k=>`<svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>`).join('');return''}
 function townIcons(c){if(c.t!=='loc')return'';const inds=[...new Set(TOWNS[c.k].slots.flat())];const ok=new Set(allBuilds(V(),c).filter(b=>b.ok).map(b=>b.ind));
@@ -482,17 +485,17 @@ function matHTML(){const p=S.players[V()];return`<table class="mat">${Object.key
 function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=null;
  if(S.over){const online=typeof ONLINE!=="undefined"&&ONLINE;el.innerHTML=`<p class="step"><b>Game over.</b> The board stays as it ended.</p><div class="row"><button type="button" class="primary" data-act="showResults">Show final standings</button>${online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>'}</div>`;return}
  const p=S.players[V()];
- if(cur()===V()&&S.lockUntil&&Date.now()<S.lockUntil&&S.lockBy!==V()){el.innerHTML=`<p class="step lockmsg">${esc(WHO(S.lockBy))} can still undo their turn for <b class="lockSecs">${Math.ceil((S.lockUntil-Date.now())/1000)}s</b>. You can play when it runs out.</p><hr class="groove"><h2>Your hand</h2>${handHTML(false)}`;return}
- if(cur()!==V()){el.innerHTML=`<h2>Your hand</h2>${handHTML(false)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
+ if(cur()===V()&&S.lockUntil&&Date.now()<S.lockUntil&&S.lockBy!==V()){el.innerHTML=`<p class="step lockmsg">${esc(WHO(S.lockBy))} can still undo their turn for <b class="lockSecs">${Math.ceil((S.lockUntil-Date.now())/1000)}s</b>. You can play when it runs out.</p><hr class="groove">${hpair('Your hand',deckTxt())}${handHTML(false)}`;return}
+ if(cur()!==V()){el.innerHTML=`${hpair('Your hand',deckTxt())}${handHTML(false)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
  const M=UI.mode;let h='';
  if(S.pendingDev&&S.pendingDev.pi===V()){const p=S.players[V()];const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);
   h+=`<h2>Free develop</h2><p class="step">Gloucester's bonus: remove one tile from your mat for free, with no iron needed. Or skip it.</p><div class="opts">${ks.map(k=>{const cur=p.mat[k][0],nx=p.mat[k][1];return`<button type="button" class="opt" data-act="freeDev" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>${IND[k].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur,k)}</small><small>Next up: ${nx?tileSpec(nx,k):'nothing left of this industry'}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="freeDev" data-k="">Skip the free develop</button></div>`;el.innerHTML=h;return}
- if(!M){h+=`<h2 class="acts-h">Your actions</h2><div class="acts">
+ if(!M){h+=`${hpair('Your actions',actsMeta())}<div class="acts">
   <button type="button" data-act="mode" data-m="build">Build</button><button type="button" data-act="mode" data-m="link">Link</button><button type="button" data-act="mode" data-m="sell">Sell</button><button type="button" data-act="mode" data-m="loan">Loan</button>
   <button type="button" data-act="mode" data-m="develop">Develop</button><button type="button" data-act="mode" data-m="scout">Scout</button><button type="button" data-act="mode" data-m="pass">Pass</button>${coachOn()?'<button type="button" data-act="hint">Hint</button>':''}</div>
-  ${UI.note?`<p class="why">${esc(UI.note)}</p>`:''}<hr class="groove"><h2>Your hand</h2>${handHTML(true)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;el.innerHTML=h;return}
+  ${UI.note?`<p class="why">${esc(UI.note)}</p>`:''}<hr class="groove">${hpair('Your hand',deckTxt())}${handHTML(true)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;el.innerHTML=h;return}
  const names={dev2:'Develop a second tile?',build:'Build',link:'Link',link2:'Second rail',sell:'Sell',loan:'Loan',develop:'Develop',scout:'Scout',pass:'Pass'};
- h+=`<h2>${names[M]}</h2>`;
+ h+=M==='dev2'||M==='link2'?`<h2>${names[M]}</h2>`:hpair(names[M],actsMeta());
  if(UI.beerPick&&(M==='link2'||M==='sell')){const bp=UI.beerPick;const what=bp.kind==='link2'?`your second rail, ${esc(nodeName(bp.e.l.a))} to ${esc(nodeName(bp.e.l.b))}`:`selling the ${lower(bp.e.t.ind)} in ${esc(TOWNS[bp.e.t.town].n)}`;
   h+=`<p class="step">Which beer for ${what}?</p><div class="opts">${bp.alts.map((o,j)=>{const L=beerAltLabel(o);return`<button type="button" class="opt" data-act="chooseBeer" data-k="${j}">${esc(L.t)}<small>${esc(L.s)}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="clearBeer">Back</button></div>`;el.innerHTML=h;return}
  if(M==='dev2'){const ok=Object.keys(IND).map(k=>evalDevelop(V(),[k])).filter(e=>e.ok);UI.opts=ok;
@@ -593,6 +596,28 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
  ${SHOWPTS?pointsHTML(rank):""}
  <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button><button type="button" data-act="showPoints">${SHOWPTS?'Hide all points':'Show all points'}</button>${again}</div></div></div>`}
 var SHOWPTS=false,PTSEL=null;
+var ERASEL=null;
+function eraEndHTML(m){const P=S.players,es=(S.eraScores||[]).find(z=>z.era==='canal');if(!es)return'';
+ const sc=P.map((p,i)=>({i,l:es.r[i].links,t:es.r[i].tiles,li:es.r[i].li||[],ti:es.r[i].ti||[]}));sc.forEach(x=>x.v=x.l+x.t);
+ const rank=[...sc].sort((a,b)=>b.v-a.v),max=Math.max(1,...sc.map(x=>x.v)),me=V();
+ if(!ERASEL||!P[ERASEL[0]]){const r=sc[me]||rank[0];ERASEL=[r.i,r.t>=r.l?1:0]}
+ const bars=rank.map(x=>`<div class="pbrow"><span class="pbname"><i style="background:var(${PCOL[x.i]})"></i>${esc(P[x.i].name)}</span><span class="pbtrack"><span class="pbbar" style="width:${x.v/max*100}%">${[x.l,x.t].map((v,j)=>v>0?`<button type="button" class="pbseg s${j}${ERASEL[0]===x.i&&ERASEL[1]===j?' on':''}" data-act="eraSeg" data-pi="${x.i}" data-j="${j}" style="flex:${v}" aria-label="${esc(P[x.i].name)}: ${j?'face-up tiles':'canal links'} ${v} VP">${v}</button>`:'').join('')}</span></span><span class="pbtot">${x.v}</span></div>`).join('');
+ const s=sc[ERASEL[0]],j=ERASEL[1],items=(j?s.ti:s.li).filter(z=>z[1]>0),zero=(j?s.ti:s.li).length-items.length;
+ const info=`<div class="pbinfo"><b>${esc(P[s.i].name)} · ${j?'Face-up tiles':'Canal links'} · ${j?s.t:s.l} VP</b><div>${items.length?items.map(z=>`${esc(z[0])} <b>${z[1]}</b>`).join(' · ')+(zero?` · plus ${zero} worth 0`:''):'Nothing scored here.'}</div><small>${j?'Only flipped tiles score.':'Each canal scores 1 per link icon on the face-up tiles at both ends (merchants count 2).'}</small></div>`;
+ const lost=(m.lost&&m.lost[me])||[],inc=incOf(P[me]);
+ return`<div class="modal fin era"><div class="box fbox wide erabox" role="dialog" aria-modal="true" aria-label="Canal era scored">
+ <div class="fribbon">Canal era scored</div>
+ <h2 class="ftitle" style="margin-top:6px!important">Halfway there</h2><p class="fsub">Points scored this era, from canal links and face-up tiles</p>
+ <div class="fpts">${bars}${info}<div class="pbkey"><span><i class="s0"></i>Canal links</span><span><i class="s1"></i>Face-up tiles</span><span style="color:#866219">Tap a bar to list each link and tile</span></div></div>
+ <div class="echg">
+ <div><span class="eic">≈</span><span><b>All canals removed.</b> Your network starts over from your remaining tiles.</span></div>
+ <div><span class="eic">✕</span><span><b>Level 1 tiles removed.</b> ${lost.length?`You lose ${lost.length}:<span class="elost">${lost.map(x=>`<span>${esc(x)}</span>`).join('')}</span>`:'You had none, so nothing of yours goes.'}</span></div>
+ <div><span class="eic">◉</span><span><b>Merchant beer refilled</b> at every merchant.</span></div>
+ <div><span class="eic">▤</span><span><b>New hand of ${HAND}.</b> Your income stays at £${inc} a round.</span></div>
+ </div>
+ <div class="row"><button type="button" class="primary" data-act="closeModal">${esc(m.btn||'Start the rail era')}</button></div></div></div>`}
+function refreshEra(){const b=document.querySelector('.erabox');if(!b||!S.modal||!S.modal.eraEnd)return render();const w=document.createElement('div');w.innerHTML=eraEndHTML(S.modal);const nb=w.querySelector('.erabox');b.replaceWith(nb);if(typeof skinDOM==='function')skinDOM(nb)}
+
 const PTK=[['Canal links','canal','li','links'],['Canal tiles','canal','ti','tiles'],['Rail links','rail','li','links'],['Rail tiles','rail','ti','tiles']];
 function ptSegs(pi){const es=S.eraScores||[],P=S.players[pi];const g=PTK.map(([n,e,it,k])=>{const x=es.find(z=>z.era===e);const r=x&&x.r[pi];return{n,v:r?r[k]:0,items:r&&r[it]?r[it]:[]}});
  if(P.mvp)g.push({n:'Merchant bonuses',v:P.mvp,items:[]});return g}
@@ -651,6 +676,7 @@ function renderCore(){const ss=document.getElementById('styleSel');if(ss&&!(docu
  if(S.modal&&S.modal.handoff!==undefined){$('modal').innerHTML=`<div class="modal solid"><div class="box" role="dialog" aria-modal="true"><h2>${esc(WHO(S.modal.handoff))}, you're up</h2><p>Pass the device to ${esc(WHO(S.modal.handoff))}. Your hand stays hidden until you tap below.</p><div class="row"><button type="button" class="primary" data-act="takeTurn">Show my hand</button></div></div></div>`;return}
  if(S.modal&&S.modal.setup){const sel=(k,v)=>SETUP[k]===v?'primary':'';$('modal').innerHTML=`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>New game</h2><p>How many players in total?</p><div class="row setup">${[2,3,4].map(n=>`<button type="button" class="${sel('n',n)}" data-act="selN" data-n="${n}">${n}</button>`).join('')}</div><p style="margin-top:12px">How many of them are people? The rest are bots. People take turns on this device.</p><div class="row setup">${Array.from({length:SETUP.n},(_,i)=>i+1).map(k=>`<button type="button" class="${sel('h',k)}" data-act="selH" data-n="${k}">${k}</button>`).join('')}</div><p style="margin-top:12px">${SETUP.h>1?'Colours':'Your colour'}</p>${setupColourRows()}<p style="margin-top:12px">Coach and hints</p><div class="row setup"><button type="button" class="${SETUP.coach?'primary':''}" data-act="selCoach" data-v="on">On</button><button type="button" class="${SETUP.coach?'':'primary'}" data-act="selCoach" data-v="off">Off</button></div><p class="sub" style="margin:4px 0 0">Tips on your turn and the Hint button. This can't be changed once the game starts.</p><p style="margin-top:12px">Bot strength</p><div class="row setup"><button type="button" class="${SETUP.bot==='devious'?'primary':''}" data-act="selBot" data-v="devious">Devious</button><button type="button" class="${SETUP.bot==='normal'?'primary':''}" data-act="selBot" data-v="normal">Normal</button></div><p class="sub" style="margin:4px 0 0">Devious bots look a few moves ahead and play to beat whoever is leading. Normal bots play simpler, for learning.</p><div class="row"><button type="button" class="primary" data-act="start">Start game</button></div>${S.modal.canCancel?'<div class="row"><button type="button" data-act="cancelSetup">Keep playing this game</button></div>':''}</div></div>`;return}
  if(S.modal&&S.modal.final){$('modal').innerHTML=finalHTML();return}
+ if(S.modal&&S.modal.eraEnd){$('modal').innerHTML=eraEndHTML(S.modal);return}
  $('modal').innerHTML=S.modal?`<div class="modal"><div class="box" role="dialog" aria-modal="true"><h2>${esc(S.modal.title)}</h2>${S.modal.lines.map(l=>`<p>${esc(l)}</p>`).join('')}<div class="row"><button type="button" class="primary" data-act="closeModal">${esc(S.modal.btn)}</button></div></div></div>`:''}
 
 /* input */
@@ -720,6 +746,7 @@ const H={
  viewBoard(){if(typeof ONLINE!=='undefined'&&ONLINE&&S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render()},
  showResults(){S.modal={final:true};render()},
  showPoints(){SHOWPTS=!SHOWPTS;refreshPoints()},
+ eraSeg(el){ERASEL=[+el.dataset.pi,+el.dataset.j];refreshEra()},
  ptSeg(el){PTSEL=[+el.dataset.pi,+el.dataset.j];refreshPoints()},
  playAgain(){S.modal={setup:true};render()},
  openLog(){LOGOPEN=true;hideTip();renderLogModal()},

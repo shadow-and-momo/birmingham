@@ -87,7 +87,7 @@ function push(force){if(!ONLINE||!code)return;dirty=true;if(force)forceNext=true
   saving=false})()}
 async function toLobby(){if(IS_HOST){if(!confirm('End this game for everyone and go back to the lobby?'))return;await updateDoc(gref(),{status:'lobby',state:null,version:0,lastHumanUid:null,updatedAt:serverTimestamp()})}else{if(confirm('Leave this game? Your seat stays yours if you come back with the same link.'))home()}}
 function renderNet(){if(!code)return;const bots=G&&G.seats.some(s=>s.bot);
- $net.innerHTML=`<div class="netbar">Game <b>${e(code)}</b><button type="button" data-lb="copy">Copy invite link</button>${IS_HOST&&bots&&!S.over?'<span>Bots run in your browser; keep this open.</span>':''}</div>`;
+ $net.innerHTML=`<div class="netbar">Game <b>${e(code)}</b><button type="button" data-lb="copy">Copy invite link</button></div>`;
  const rb=document.querySelector('[data-act="restart"]');if(rb)rb.textContent=IS_HOST?'Lobby':'Leave'}
 window.NET={push,toLobby};
 
