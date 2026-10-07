@@ -195,6 +195,8 @@ details p{margin:8px 0;font-size:14px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}}
 :root[data-theme="dark"] .groove{border-top-color:rgba(0,0,0,.55);border-bottom-color:rgba(255,255,255,.07)}
 .acts-h{margin-top:4px}
+.opt:has(.optvp){position:relative;padding-right:64px}.optvp{position:absolute;top:9px;right:12px;font-weight:600;color:var(--brass)}
+
 .modal.era{overflow-y:auto;align-items:flex-start;padding-top:34px}.modal.era .fbox{margin:auto}
 .fbox.erabox{text-align:left}.erabox .ftitle,.erabox .fsub{text-align:center}
 .echg{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:13px;margin:10px 0 4px;background:color-mix(in srgb,var(--brass) 8%,var(--ground));border:1px solid var(--line);border-radius:8px;padding:10px 12px}

@@ -76,3 +76,16 @@ test('online game state survives a JSON round trip every move', () => {
   assert.ok(run('S.over'));
   assert.ok(JSON.stringify(run('S')).length < 900000, 'saved game must stay well under the 1 MB Firestore limit');
 });
+
+test('a tile connected to two buyers can be sold to either one', () => {
+  const ctx = loadEngine();
+  const run = code => vm.runInContext(code, ctx);
+  run(`newGame(4,1);S.era='rail';S.tiles=[];S.links=[];
+    S.merchTiles.oxford=['pottery','goods'];S.merchTiles.gloucester=['any','cotton'];S.merchBeer.oxford=1;S.merchBeer.gloucester=2;
+    const L=(a,b)=>LINKS.find(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a));
+    for(const [a,b] of [['coventry','bham'],['bham','oxford'],['bham','redditch'],['redditch','gloucester']]){const l=L(a,b);S.links.push({id:l.id,a:l.a,b:l.b,owner:1})}
+    S.tiles.push({id:900,owner:0,ind:'pottery',def:TILES.pottery[2],town:'coventry',slot:0,cubes:0,flipped:false});
+    S.tiles.push({id:901,owner:0,ind:'brewery',def:TILES.brewery[1],town:'uttoxeter',slot:0,cubes:2,flipped:false});`);
+  const ms = run("evalSellAll(0,S.tiles.find(t=>t.id===900)).map(e=>e.m).sort().join(',')");
+  assert.equal(ms, 'gloucester,oxford');
+});

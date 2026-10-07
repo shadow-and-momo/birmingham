@@ -191,6 +191,8 @@ function beerPlan(pi,t,m,d){let need=t.def.beer;const r={ok:true,merch:false,tak
  const brews=S.tiles.filter(b=>b.ind==='brewery'&&b.cubes>0&&(b.owner===pi||d[b.town]!==undefined)).sort((a,b)=>(b.owner===pi)-(a.owner===pi));
  for(const b of brews){if(!need)break;const n=Math.min(b.cubes,need);r.takes.push({t:b,n});need-=n}
  if(need)return{ok:false};return r}
+function evalSellAll(pi,t){const e=evalSell(pi,t);if(!e.ok)return[];const d=bfs([t.town]);return Object.keys(MERCH).filter(m=>d[m]!==undefined&&acc(m).includes(t.ind)).sort((a,b)=>S.merchBeer[b]-S.merchBeer[a]).map(m=>{const bp=beerPlan(pi,t,m,d);return bp.ok?{ok:true,t,m,bp}:null}).filter(Boolean)}
+function bonusTxt(m){const b=MERCH[m].bonus;return b.type==='money'?'+£'+b.v:b.type==='vp'?'+'+b.v+' VP':b.type==='income'?'+'+b.v+' income spaces':'a free develop'}
 function evalSell(pi,t){if(t.owner!==pi||t.flipped||!SELLABLE.includes(t.ind))return{ok:false,reason:'Not sellable.'};
  const d=bfs([t.town]);const ms=Object.keys(MERCH).filter(m=>d[m]!==undefined&&acc(m).includes(t.ind));
  if(!ms.length)return{ok:false,reason:`${TOWNS[t.town].n} has no link route to a merchant that buys a ${lower(t.ind)}.`};
@@ -203,7 +205,7 @@ function execSell(pi,e){const p=S.players[pi];consume(e.bp.takes,pi);let bonus='
  log(`${WHO(pi)} sold the ${lower(e.t.ind)} in ${TOWNS[e.t.town].n} to ${MERCH[e.m].n}${bonus?`, using its beer barrel (${bonus})`:''}.`);
  flip(e.t,pi);
  if(isHuman(pi))coachAdd(`Sold: +${e.t.def.inc} income spaces, ${e.t.def.vp} VP per era.${bonus?` Bonus: ${bonus}.`:''}`)}
-function beerText(e){const need=e.t.def.beer;if(!need)return'Needs no beer.';const parts=[];if(e.bp.merch)parts.push(`1 from ${MERCH[e.m].n}'s barrel (bonus)`);const by={};e.bp.takes.forEach(x=>{const k=YOURS(x.t.owner)+' brewery in '+TOWNS[x.t.town].n;by[k]=(by[k]||0)+x.n});for(const k in by)parts.push(`${by[k]} from ${k}`);return`Needs ${need} beer: ${parts.join(', ')}.`}
+function beerText(e){const need=e.t.def.beer;if(!need)return'Needs no beer.';const parts=[];if(e.bp.merch)parts.push(`1 from ${MERCH[e.m].n}'s barrel (bonus: ${bonusTxt(e.m)})`);const by={};e.bp.takes.forEach(x=>{const k=YOURS(x.t.owner)+' brewery in '+TOWNS[x.t.town].n;by[k]=(by[k]||0)+x.n});for(const k in by)parts.push(`${by[k]} from ${k}`);return`Needs ${need} beer: ${parts.join(', ')}.`}
 function sellAll(pi){let e;let guard=0;while(guard++<10){const list=S.tiles.filter(t=>t.owner===pi&&!t.flipped&&SELLABLE.includes(t.ind)).map(t=>evalSell(pi,t)).filter(x=>x.ok);if(!list.length)break;execSell(pi,list[0])}}
 
 /* turns */
@@ -497,7 +499,8 @@ function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=n
  const names={dev2:'Develop a second tile?',build:'Build',link:'Link',link2:'Second rail',sell:'Sell',loan:'Loan',develop:'Develop',scout:'Scout',pass:'Pass'};
  h+=M==='dev2'||M==='link2'?`<h2>${names[M]}</h2>`:hpair(names[M],actsMeta());
  if(UI.beerPick&&(M==='link2'||M==='sell')){const bp=UI.beerPick;const what=bp.kind==='link2'?`your second rail, ${esc(nodeName(bp.e.l.a))} to ${esc(nodeName(bp.e.l.b))}`:`selling the ${lower(bp.e.t.ind)} in ${esc(TOWNS[bp.e.t.town].n)}`;
-  h+=`<p class="step">Which beer for ${what}?</p><div class="opts">${bp.alts.map((o,j)=>{const L=beerAltLabel(o);return`<button type="button" class="opt" data-act="chooseBeer" data-k="${j}">${esc(L.t)}<small>${esc(L.s)}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="clearBeer">Back</button></div>`;el.innerHTML=h;return}
+  const rv=bp.kind==='link2'?icons(bp.e.l.a)+icons(bp.e.l.b):0;const flipAdd=o=>{if(bp.kind!=='link2')return 0;const br=o.br||(o.takes&&o.takes[0]&&o.takes[0].t);return br&&br.cubes===1&&(br.town===bp.e.l.a||br.town===bp.e.l.b)?br.def.lk:0};
+  h+=`<p class="step">Which beer for ${what}?${bp.kind==='link2'?` It's worth <b>${rv} VP</b> if the era ended now.`:''}</p><div class="opts">${bp.alts.map((o,j)=>{const L=beerAltLabel(o),fa=flipAdd(o);return`<button type="button" class="opt" data-act="chooseBeer" data-k="${j}">${esc(L.t)}${bp.kind==='link2'?`<span class="optvp">${rv+fa} VP</span>`:''}<small>${esc(L.s)}${fa?` Flipping it adds ${fa} link point${fa>1?'s':''}, so this rail would be worth ${rv+fa} VP.`:''}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="clearBeer">Back</button></div>`;el.innerHTML=h;return}
  if(M==='dev2'){const ok=Object.keys(IND).map(k=>evalDevelop(V(),[k])).filter(e=>e.ok);UI.opts=ok;
   h+=`<p class="step">Optional: remove one more tile in this same action, for one more iron.</p><div class="opts">${devOptsHTML(ok,'doDev2').join('')}</div><div class="row"><button type="button" class="primary" data-act="finishDev">Just the one</button></div>`;el.innerHTML=h;return}
  if(M==='link2'){const es=LINKS.map(l=>evalLink2(V(),l)),ok=es.filter(e=>e.ok).sort((a,b)=>scoreLink(V(),b)-scoreLink(V(),a));UI.opts=ok;UI.legalLinks=new Set(ok.map(e=>e.l.id));
@@ -533,7 +536,7 @@ function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=n
  if(M==='develop'){const es=Object.keys(IND).map(k=>evalDevelop(V(),[k]));const ok=es.filter(e=>e.ok);UI.opts=ok;
   opts=devOptsHTML(ok,'doDevelop');if(ok.length)h+=`<p class="step">Pick one tile to remove. You can add a second one after, for one more iron.</p>`;
   if(!ok.length)why=topReasons(es.map(e=>e.reason))}
- if(M==='sell'){const mine=S.tiles.filter(t=>t.owner===V()&&!t.flipped&&SELLABLE.includes(t.ind));const es=mine.map(t=>evalSell(V(),t));const ok=es.filter(e=>e.ok);UI.opts=ok;UI.hiTowns=new Set(ok.map(e=>e.t.town));
+ if(M==='sell'){const mine=S.tiles.filter(t=>t.owner===V()&&!t.flipped&&SELLABLE.includes(t.ind));const es=mine.map(t=>evalSell(V(),t));const ok=mine.flatMap(t=>evalSellAll(V(),t));UI.opts=ok;UI.hiTowns=new Set(ok.map(e=>e.t.town));
   opts=ok.map((e,k)=>`<button type="button" class="opt" data-act="doSell" data-k="${k}">Sell the ${lower(e.t.ind)} in ${TOWNS[e.t.town].n} to ${MERCH[e.m].n}<small>Flips it: ${e.t.def.vp} VP, +${e.t.def.inc} income spaces. ${beerText(e)}</small></button>`);
   if(!mine.length)why=['You have no face-down cotton mills, manufacturers or potteries to sell. Build one first.'];else if(!ok.length)why=topReasons(es.map(e=>e.reason))}
  h+=opts.length?`<div class="opts">${opts.join('')}</div>`:'';
@@ -697,7 +700,7 @@ function YOURS(i){return i===V()?'your':POSS(i)}
 function beerAltLabel(o){if(o.merch){const b=MERCH[o.m].bonus;return{t:`${MERCH[o.m].n}'s beer barrel`,s:`Bonus: ${b.type==='money'?'+£'+b.v:b.type==='vp'?'+'+b.v+' VP':b.type==='income'?'+'+b.v+' income spaces':'a free develop'}`}}
  const br=o.br||o.takes[0].t;const own=br.owner===V();return{t:`${own?'Your':POSS(br.owner)[0].toUpperCase()+POSS(br.owner).slice(1)} brewery in ${TOWNS[br.town].n} (${br.cubes} left)`,s:own?(br.cubes===1?'Uses your last beer there, which flips your brewery.':'Keeps more of your other beer for later.'):(br.cubes===1?`Their last beer there: it flips ${POSS(br.owner)} brewery and raises their income.`:`Uses ${POSS(br.owner)} beer instead of yours.`)}}
 function pickRail2(e){if(e.brs&&e.brs.length>1){UI.beerPick={kind:'link2',e,alts:e.brs.map(br=>({br}))};render();return}userAction([],()=>execLink2(V(),e))}
-function sellBeerAlts(pi,t){if(t.def.beer!==1)return[];const d=bfs([t.town]);const ms=Object.keys(MERCH).filter(m=>d[m]!==undefined&&acc(m).includes(t.ind));if(!ms.length)return[];const out=[];
+function sellBeerAlts(pi,t,only){if(t.def.beer!==1)return[];const d=bfs([t.town]);const ms=Object.keys(MERCH).filter(m=>d[m]!==undefined&&acc(m).includes(t.ind)&&(!only||m===only));if(!ms.length)return[];const out=[];
  ms.forEach(m=>{if(S.merchBeer[m]>0)out.push({m,merch:true,takes:[]})});
  S.tiles.filter(b=>b.ind==='brewery'&&b.cubes>0&&(b.owner===pi||d[b.town]!==undefined)).sort((a,b)=>(b.owner===pi)-(a.owner===pi)).forEach(b=>out.push({m:ms[0],merch:false,takes:[{t:b,n:1}]}));return out}
 function sellNow(e){CM=[];if(UI.card!=='spent'){snap();discard(V(),[UI.card]);UI.card='spent'}execSell(V(),e);UI.sold++;UI.beerPick=null;
@@ -731,7 +734,7 @@ const H={
  doDevelop(el){const e=UI.opts[+el.dataset.k];if(e)firstDevelop(e)},
  doDev2(el){const e=UI.opts[+el.dataset.k];if(e)userAction([],()=>execDevelop(V(),e))},
  finishDev(){resetUI();afterAction()},
- doSell(el){const e=UI.opts[+el.dataset.k];if(!e)return;const alts=sellBeerAlts(V(),e.t);if(alts.length>1){UI.beerPick={kind:'sell',e,alts};render();return}sellNow(e)},
+ doSell(el){const e=UI.opts[+el.dataset.k];if(!e)return;const alts=sellBeerAlts(V(),e.t,e.m);if(alts.length>1){UI.beerPick={kind:'sell',e,alts};render();return}sellNow(e)},
  finishSell(){resetUI();afterAction()},
  scoutGo(){if(UI.scout.length!==3)return;const c=[...UI.scout];userAction(c,()=>execScout(V()))},
  setSetting(el){setSetting(el.dataset.v)},
