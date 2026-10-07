@@ -5,6 +5,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Canal era score screen.** "Halfway there": each player's canal-era points as a bar split into canal links and face-up tiles (tap a segment for every link and tile), plus what changes now: canals removed, your level 1 tiles that are removed (named), merchant beer refilled, and a new hand with your income.
 - **Show all points** on the final standings. A bar for each player split into canal links, canal tiles, rail links, rail tiles (and merchant bonuses), in the board's colours. Tap a segment to list every link and tile in it with its points.
 - **Overbuilding.** Replace your own tile with a higher level of the same industry, or another player's coal mine or ironworks with a higher level when there's none of that resource left on the board or in the market. Overbuild options are labelled in the build list. Bots overbuild too.
 - **Sound effects** for building, links and sales (softer for other players' moves), and a **chime when your turn starts**.
@@ -33,6 +34,10 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Automated tests for full 2-, 3- and 4-player games, the card deck and the player mats.
 
 ### Changed
+- **Player panels have depth.** A soft drop shadow, with the current player's panel lifted slightly higher.
+- **Round number** beside Your actions: "Round 3 of 8 | 1 action left".
+- **Spending on each player panel.** "spent £12" sits on the cash line of every panel (whoever spends least goes first next round), replacing the separate Spent this round line.
+- **Tidier sidebars.** "Actions left" now sits beside Your actions, and "cards left in deck" beside Your hand, split by a grooved divider. The era/round line and the "Bots run in your browser" note are gone, and the game code and invite link moved to the bottom of the left column.
 - **Your next tiles** uses grooved row lines and subtle dividers between columns.
 - **Settings as dropdowns**: Sound effects, Setting and Map style sit side by side as compact dropdowns in the left column.
 - **Clearer icons**: the coal mine is now a mine cart, the ironworks an anvil, and the cotton mill a factory with a sawtooth weaving-shed roof, so they don't get confused with the ironworks and brewery.
