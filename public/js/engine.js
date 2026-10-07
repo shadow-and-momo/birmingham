@@ -214,8 +214,11 @@ function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const 
 function endTurn(){const p=S.players[cur()];p.hand.forEach(c=>delete c.fresh);while(p.hand.length<HAND&&S.deck.length){const c=S.deck.pop();c.fresh=true;p.hand.push(c)}S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}
 function startTurn(){const p=S.players[cur()];S.turnSerial++;if(isHuman(cur())&&p.hand.length)S.myTurns[cur()]++;S.actionsLeft=(S.era==='canal'&&S.round===1)?1:2;
  if(p.hand.length===0){S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}}
-function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money;p.money=0;p.vp-=short;p.lostVp=(p.lostVp||0)+short;log(`${p.name} couldn't cover negative income and lost ${short} VP.`)}});
+function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money,pi=S.players.indexOf(p);p.money=0;if(isHuman(pi)&&!SEARCHING&&shortTiles(pi).length)(S.shortfalls=S.shortfalls||[]).push({pi,need:short});else settleShortAuto(pi,short)}});
  if(!last)log(`Round ${S.round} over. Income paid: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${incOf(p)}`).join(', ')}.`);
+ if(S.shortfalls&&S.shortfalls.length){S.turnIdx=S.order.length-1;return}
+ finishRound()}
+function finishRound(){S.shortfalls=null;
  const ord=[...S.order].sort((a,b)=>S.spent[a]-S.spent[b]);
  if(ord[0]!==S.order[0])log(`${solo(ord[0])?'You spent':WHO(ord[0])+' spent'} the least, so ${solo(ord[0])?'you go':'they go'} first next round.`);
  S.order=ord;S.spent=S.players.map(()=>0);S.turnIdx=0;
@@ -260,7 +263,7 @@ function candidates(pi,noJitter){const p=S.players[pi];const C=[];if(!p.hand.len
  if(S.era==='rail'){const stuck=Object.keys(IND).filter(k=>p.mat[k][0]&&p.mat[k][0].canal);if(stuck.length){const e=evalDevelop(pi,stuck.slice(0,2));if(e.ok)C.push({score:3+stuck.slice(0,2).length,desc:`develop past your ${devLabel(pi,e.inds)}`,run(){discard(pi,[spare]);execDevelop(pi,e)}})}}
  C.push({score:0,desc:'pass',run(){discard(pi,[spare]);log(`${WHO(pi)} passed.`)}});
  if(!isHuman(pi)&&!noJitter)C.forEach(c=>c.score+=Math.random()*1.2);return C.sort((a,b)=>b.score-a.score)}
-function maybeBot(){if(S.over||S.modal)return;if(isHuman(cur())){if(ONLINE)return;if(cur()!==S.view){if(S.humans>1){S.modal={handoff:cur()};render()}else S.view=cur()}return}if(ONLINE&&!IS_HOST)return;{clearTimeout(botTimer);botTimer=setTimeout(botAct,Math.max(900,(S.lockUntil||0)-Date.now()+120))}}
+function maybeBot(){if(S.over||S.modal)return;if(S.shortfalls&&S.shortfalls.length){const pi=S.shortfalls[0].pi;if(!ONLINE&&S.view!==pi){if(S.humans>1){S.modal={handoff:pi};render()}else S.view=pi}return}if(isHuman(cur())){if(ONLINE)return;if(cur()!==S.view){if(S.humans>1){S.modal={handoff:cur()};render()}else S.view=cur()}return}if(ONLINE&&!IS_HOST)return;{clearTimeout(botTimer);botTimer=setTimeout(botAct,Math.max(900,(S.lockUntil||0)-Date.now()+120))}}
 
 /* ---------- Devious bot: looks ahead and plays to beat the leader ---------- */
 const ROUNDS_PER_ERA={2:10,3:9,4:8};
@@ -295,7 +298,7 @@ function searchBotActionInner(pi){const t0=Date.now(),root=structuredClone(S),re
    if(val>bestV){bestV=val;bestI=i}}}
  finally{S=root;CM=realCM}
  return bestI}
-function botAct(){if(S.over||S.modal||isHuman(cur()))return;if(S.lockUntil&&Date.now()<S.lockUntil){maybeBot();return}const pi=cur();let best;if((S.botLevel||'devious')==='devious'){const i=searchBotAction(pi);best=candidates(pi,true)[i]}else best=candidates(pi)[0];CM=[];best.run();flushCoach();afterAction()}
+function botAct(){if(S.over||S.modal||isHuman(cur())||(S.shortfalls&&S.shortfalls.length))return;if(S.lockUntil&&Date.now()<S.lockUntil){maybeBot();return}const pi=cur();let best;if((S.botLevel||'devious')==='devious'){const i=searchBotAction(pi);best=candidates(pi,true)[i]}else best=candidates(pi)[0];CM=[];best.run();flushCoach();afterAction()}
 
 /* rendering */
 const T=24,STEP=27;
@@ -487,8 +490,10 @@ function matHTML(){const p=S.players[V()];return`<table class="mat">${Object.key
 function renderControls(){const el=$('controls');UI.legalLinks=null;UI.hiTowns=null;
  if(S.over){const online=typeof ONLINE!=="undefined"&&ONLINE;el.innerHTML=`<p class="step"><b>Game over.</b> The board stays as it ended.</p><div class="row"><button type="button" class="primary" data-act="showResults">Show final standings</button>${online?(IS_HOST?'<button type="button" data-act="restart">Back to lobby</button>':''):'<button type="button" data-act="playAgain">Play again</button>'}</div>`;return}
  const p=S.players[V()];
+ if(S.shortfalls&&S.shortfalls.length){const sf=S.shortfalls[0];el.innerHTML=sf.pi===V()?shortHTML(sf):`<p class="step lockmsg">${esc(WHO(sf.pi))} can't pay their negative income and is choosing tiles to remove. Play continues when they're done.</p><hr class="groove">${hpair('Your hand',deckTxt())}${handHTML(false)}`;return}
  if(cur()===V()&&S.lockUntil&&Date.now()<S.lockUntil&&S.lockBy!==V()){el.innerHTML=`<p class="step lockmsg">${esc(WHO(S.lockBy))} can still undo their turn for <b class="lockSecs">${Math.ceil((S.lockUntil-Date.now())/1000)}s</b>. You can play when it runs out.</p><hr class="groove">${hpair('Your hand',deckTxt())}${handHTML(false)}`;return}
  if(cur()!==V()){el.innerHTML=`${hpair('Your hand',deckTxt())}${handHTML(false)}<hr class="groove"><h2 class="h2row">Your next tiles <button type="button" class="linkbtn" data-act="openChart">All tile values</button></h2>${matHTML()}`;return}
+ if(UI.src){el.innerHTML=srcHTML();return}
  const M=UI.mode;let h='';
  if(S.pendingDev&&S.pendingDev.pi===V()){const p=S.players[V()];const ks=Object.keys(IND).filter(k=>p.mat[k].length&&!p.mat[k][0].bulb);
   h+=`<h2>Free develop</h2><p class="step">Gloucester's bonus: remove one tile from your mat for free, with no iron needed. Or skip it.</p><div class="opts">${ks.map(k=>{const cur=p.mat[k][0],nx=p.mat[k][1];return`<button type="button" class="opt" data-act="freeDev" data-k="${k}"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-${k}"/></svg>${IND[k].name}: remove level ${cur.l}<small>Removing ${tileSpec(cur,k)}</small><small>Next up: ${nx?tileSpec(nx,k):'nothing left of this industry'}</small></button>`}).join('')}</div><div class="row"><button type="button" data-act="freeDev" data-k="">Skip the free develop</button></div>`;el.innerHTML=h;return}
@@ -598,6 +603,48 @@ function finalHTML(){const rank=finalRank();const P=S.players;const tie=(a,b)=>P
  <p class="fnote">Ties are broken by income, then cash.</p>
  ${SHOWPTS?pointsHTML(rank):""}
  <div class="row"><button type="button" class="primary" data-act="viewBoard">View the board</button><button type="button" data-act="showPoints">${SHOWPTS?'Hide all points':'Show all points'}</button>${again}</div></div></div>`}
+
+/* ---------- Player choices for coal, iron and beer (rulebook p.8) ---------- */
+// Each unit of coal/iron/beer is picked from the sources the rules allow. A single option is taken
+// automatically; when there's a real choice the player is asked.
+function srcOpts(q,picks){const used={};picks.forEach(id=>used[id]=(used[id]||0)+1);const left=t=>t.cubes-(used[t.id]||0);const out=[];
+ const cap=s=>s[0].toUpperCase()+s.slice(1);
+ const tileOpt=(t,word)=>{const n=left(t),own=t.owner===V();const flipNote=n===1?(own?`Uses its last cube, which flips your ${word} (+${t.def.inc} income spaces, scores ${t.def.vp} VP).`:`Its last cube: flips ${POSS(t.owner)} ${word} and raises their income.`):(own?'Your own.':`Uses ${POSS(t.owner)} ${word==='coal mine'?'coal':'iron'}.`);
+  return{id:t.id,t:`${cap(YOURS(t.owner))} ${word} in ${TOWNS[t.town].n} (${n} left)`,s:flipNote}};
+ if(q.kind==='iron')S.tiles.filter(t=>t.ind==='iron'&&left(t)>0).forEach(t=>out.push(tileOpt(t,'ironworks')));
+ else if(q.kind==='coal'){const d=bfs(q.starts);const ms=S.tiles.filter(t=>t.ind==='coal'&&left(t)>0&&d[t.town]!==undefined);if(ms.length){const md=Math.min(...ms.map(t=>d[t.town]));ms.filter(t=>d[t.town]===md).forEach(t=>out.push(tileOpt(t,'coal mine')))}}
+ else{const d=bfs(q.starts);if(q.m&&S.merchBeer[q.m]>0&&!used.m){const L=beerAltLabel({merch:true,m:q.m});out.push({id:'m',t:L.t,s:L.s})}
+  S.tiles.filter(b=>b.ind==='brewery'&&left(b)>0&&(b.owner===V()||d[b.town]!==undefined)).forEach(b=>{const L=beerAltLabel({br:{...b,cubes:left(b)}});out.push({id:b.id,t:L.t,s:L.s})})}
+ return out}
+function chooseSources(reqs,done){UI.src={reqs,i:0,picks:reqs.map(()=>[]),done};advanceSrc()}
+function advanceSrc(){const st=UI.src;if(!st)return;
+ while(st.i<st.reqs.length){const q=st.reqs[st.i],pk=st.picks[st.i];if(pk.length>=q.need){st.i++;continue}
+  const op=srcOpts(q,pk);if(!op.length){st.i++;continue}if(op.length===1){pk.push(op[0].id);continue}render();return}
+ UI.src=null;st.done(st.picks)}
+function planPicks(kind,picks,need){const r={ok:true,takes:[],mkt:0,cost:0};const by=new Map();picks.forEach(id=>{if(id!=='m')by.set(id,(by.get(id)||0)+1)});
+ by.forEach((n,id)=>{const t=S.tiles.find(x=>x.id===id);if(t)r.takes.push({t,n})});const left=need-picks.length;if(left>0&&kind!=='beer'){r.mkt=left;r.cost=mktCost(kind,left)}return r}
+function srcHTML(){const st=UI.src,q=st.reqs[st.i],pk=st.picks[st.i],op=srcOpts(q,pk);const word=q.kind==='beer'?'Beer':q.kind==='coal'?'Coal':'Iron';
+ return`${hpair(q.title,q.need>1?`${word} ${pk.length+1} of ${q.need}`:word)}<p class="step">${esc(q.ask)}</p><div class="opts">${op.map(o=>`<button type="button" class="opt" data-act="pickSrc" data-id="${o.id}">${esc(o.t)}<small>${esc(o.s)}</small></button>`).join('')}</div><div class="row"><button type="button" data-act="cancelSrc">Back</button></div>`}
+function buildGo(b,ci){const reqs=[],where=`your ${lower(b.ind)} in ${TOWNS[b.town].n}`;
+ if(b.def.coal)reqs.push({kind:'coal',need:b.def.coal,starts:[b.town],title:'Build',ask:`These coal mines are equally close to ${TOWNS[b.town].n}. Which one supplies the coal for ${where}?`});
+ if(b.def.iron)reqs.push({kind:'iron',need:b.def.iron,title:'Build',ask:`Iron can come from any ironworks. Which one for ${where}?`});
+ if(!reqs.length){userAction([ci],()=>execBuild(V(),b));return}
+ chooseSources(reqs,pk=>{let k=0;const nb={...b};if(b.def.coal)nb.cp=planPicks('coal',pk[k++],b.def.coal);if(b.def.iron)nb.ip=planPicks('iron',pk[k++],b.def.iron);userAction([ci],()=>execBuild(V(),nb))})}
+function devGo(e,fn){const n=e.inds.length;chooseSources([{kind:'iron',need:n,title:'Develop',ask:'Iron can come from any ironworks. Which one?'}],pk=>fn({...e,ip:planPicks('iron',pk[0],n)}))}
+function railCoal(e,title,fn){chooseSources([{kind:'coal',need:1,starts:[e.l.a,e.l.b],title,ask:`These coal mines are equally close to the rail from ${nodeName(e.l.a)} to ${nodeName(e.l.b)}. Which one supplies its coal?`}],pk=>fn({...e,cp:planPicks('coal',pk[0],1)}))}
+
+/* ---------- Negative income shortfall (rulebook p.6) ---------- */
+function shortGain(t){return Math.floor((t.def.cost||0)/2)}
+function shortTiles(pi){return S.tiles.filter(t=>t.owner===pi&&shortGain(t)>0)}
+function loseVp(pi,amt){const p=S.players[pi];const l=Math.min(Math.max(0,p.vp),amt);p.vp-=l;p.lostVp=(p.lostVp||0)+l;log(`${p.name} couldn't cover £${amt} of negative income and lost ${l} VP${l<amt?" (VP can't go below 0)":''}.`)}
+function removeForShort(pi,t){S.tiles=S.tiles.filter(x=>x!==t);const g=shortGain(t);log(`${WHO(pi)} removed ${POSS(pi)} level ${t.def.l} ${lower(t.ind)} in ${TOWNS[t.town].n} for £${g} to cover negative income.`);return g}
+function settleShortAuto(pi,need){const val=t=>(t.flipped?t.def.vp*1.5+t.def.lk:t.def.vp*.4+(t.cubes||0)*.5)/shortGain(t);
+ for(const t of shortTiles(pi).sort((a,b)=>val(a)-val(b))){if(need<=0)break;need-=removeForShort(pi,t)}
+ if(need<0)S.players[pi].money+=-need;else if(need>0)loseVp(pi,need)}
+function settleAllShortAuto(){if(!S.shortfalls)return;while(S.shortfalls.length){const s=S.shortfalls.shift();settleShortAuto(s.pi,s.need)}S.shortfalls=null;finishRound()}
+function shortHTML(sf){const ts=shortTiles(sf.pi).sort((a,b)=>shortGain(b)-shortGain(a));
+ return`${hpair('Negative income',`£${sf.need} short`)}<p class="step">You can't pay this round's negative income. Remove your own industry tiles to raise the money: each returns half its cost, rounded down. You stop as soon as the shortfall is covered and keep any extra. Any shortfall left after your last tile costs 1 VP per £1.</p><div class="opts">${ts.map(t=>`<button type="button" class="opt" data-act="shortTile" data-id="${t.id}">Level ${t.def.l} ${lower(t.ind)} in ${esc(TOWNS[t.town].n)}<span class="optvp">+£${shortGain(t)}</span><small>${t.flipped?`Face up: you lose its ${t.def.vp} VP at the era's end, and links into ${esc(TOWNS[t.town].n)} lose ${t.def.lk} link point${t.def.lk===1?'':'s'}.`:`Face down${t.cubes?`, ${t.cubes} ${t.ind==='brewery'?'beer':t.ind} left`:''}: not scoring yet.`} Your income stays where it is.</small></button>`).join('')}</div>`}
+
 var SHOWPTS=false,PTSEL=null;
 var ERASEL=null;
 function eraEndHTML(m){const P=S.players,es=(S.eraScores||[]).find(z=>z.era==='canal');if(!es)return'';
@@ -689,7 +736,7 @@ function renderUndo(){const el=document.getElementById('undo');if(!el)return;if(
  if(!UNDO.length){el.innerHTML='';return}const secs=UNDO_DEADLINE?Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000)):0;const label=`Undo ${S.humans>1?'last move':'my last move'}`;
  el.innerHTML=`<button type="button" class="undo${secs?' timed':''}" data-act="undo">${label}${secs?` <span class="usecs">${secs}s</span>`:''}${secs?`<span class="ubar" style="--s:${((UNDO_DEADLINE-Date.now())/UNDO_WINDOW).toFixed(3)};animation-duration:${UNDO_DEADLINE-Date.now()}ms"></span>`:''}</button>`;if(typeof skinDOM==='function')skinDOM(el)}
 setInterval(()=>{if(S&&S.lockUntil){const ls=document.querySelector('.lockSecs');if(Date.now()>=S.lockUntil){S.lockUntil=0;render()}else if(ls)ls.textContent=Math.ceil((S.lockUntil-Date.now())/1000)+'s'}if(!UNDO_DEADLINE)return;if(Date.now()>=UNDO_DEADLINE){renderUndo();return}const s=document.querySelector('.usecs');if(s)s.textContent=Math.max(1,Math.ceil((UNDO_DEADLINE-Date.now())/1000))+'s';else renderUndo()},250);
-function firstLink(e){snap();CM=[];discard(V(),[UI.card]);execLink(V(),e);if(S.era==='rail'&&bestLink2(V())){flushCoach();resetUI();UI.mode='link2';render()}else{flushCoach();resetUI();afterAction()}}
+function firstLink(e){if(S.era==='rail'&&!e.coalPicked){railCoal(e,'Link',e2=>firstLink({...e2,coalPicked:true}));return}snap();CM=[];discard(V(),[UI.card]);execLink(V(),e);if(S.era==='rail'&&bestLink2(V())){flushCoach();resetUI();UI.mode='link2';render()}else{flushCoach();resetUI();afterAction()}}
 function makesTxt(d,ind){return ind==='coal'?`makes ${d.prod} coal, `:ind==='iron'?`makes ${d.prod} iron, `:ind==='brewery'?`makes ${d.rail||S.era==='rail'?2:1} beer, `:''}
 function tileSpec(d,ind){const need=[d.coal?`${d.coal} coal`:'',d.iron?`${d.iron} iron`:''].filter(Boolean).join(' + ');return`level ${d.l}: £${d.cost}${need?' + '+need:''}, ${ind?makesTxt(d,ind):''}${d.vp} VP, +${d.inc} income, ${d.lk} link point${d.lk===1?'':'s'}${d.beer?`, sells with ${d.beer} beer`:''}${d.canal?', canal era only':''}${d.rail?', rail era only':''}${d.bulb?', can\'t be developed':''}`}
 function devOptsHTML(list,act){const p=S.players[V()];return list.map((e,k)=>{const ind=e.inds[0],cur=p.mat[ind][0],nx=p.mat[ind][1];
@@ -699,7 +746,7 @@ function firstDevelop(e){snap();CM=[];discard(V(),[UI.card]);execDevelop(V(),e);
 function YOURS(i){return i===V()?'your':POSS(i)}
 function beerAltLabel(o){if(o.merch){const b=MERCH[o.m].bonus;return{t:`${MERCH[o.m].n}'s beer barrel`,s:`Bonus: ${b.type==='money'?'+£'+b.v:b.type==='vp'?'+'+b.v+' VP':b.type==='income'?'+'+b.v+' income spaces':'a free develop'}`}}
  const br=o.br||o.takes[0].t;const own=br.owner===V();return{t:`${own?'Your':POSS(br.owner)[0].toUpperCase()+POSS(br.owner).slice(1)} brewery in ${TOWNS[br.town].n} (${br.cubes} left)`,s:own?(br.cubes===1?'Uses your last beer there, which flips your brewery.':'Keeps more of your other beer for later.'):(br.cubes===1?`Their last beer there: it flips ${POSS(br.owner)} brewery and raises their income.`:`Uses ${POSS(br.owner)} beer instead of yours.`)}}
-function pickRail2(e){if(e.brs&&e.brs.length>1){UI.beerPick={kind:'link2',e,alts:e.brs.map(br=>({br}))};render();return}userAction([],()=>execLink2(V(),e))}
+function pickRail2(e){if(!e.coalPicked){railCoal(e,'Second rail',e2=>pickRail2({...e2,coalPicked:true}));return}if(e.brs&&e.brs.length>1){UI.beerPick={kind:'link2',e,alts:e.brs.map(br=>({br}))};render();return}userAction([],()=>execLink2(V(),e))}
 function sellBeerAlts(pi,t,only){if(t.def.beer!==1)return[];const d=bfs([t.town]);const ms=Object.keys(MERCH).filter(m=>d[m]!==undefined&&acc(m).includes(t.ind)&&(!only||m===only));if(!ms.length)return[];const out=[];
  ms.forEach(m=>{if(S.merchBeer[m]>0)out.push({m,merch:true,takes:[]})});
  S.tiles.filter(b=>b.ind==='brewery'&&b.cubes>0&&(b.owner===pi||d[b.town]!==undefined)).sort((a,b)=>(b.owner===pi)-(a.owner===pi)).forEach(b=>out.push({m:ms[0],merch:false,takes:[{t:b,n:1}]}));return out}
@@ -708,7 +755,7 @@ function sellNow(e){CM=[];if(UI.card!=='spent'){snap();discard(V(),[UI.card]);UI
  if(more)coachAdd('You can sell another in this action.');flushCoach();
  if(S.pendingDev&&S.pendingDev.pi===V()){UI.afterDevMore=more;render();return}
  if(!more){resetUI();afterAction()}else render()}
-function startBuild(b,ci){if(b.alts&&b.alts.length>1){UI.slotPick={b,ci};render();return}userAction([ci],()=>execBuild(V(),b))}
+function startBuild(b,ci){if(b.alts&&b.alts.length>1){UI.slotPick={b,ci};render();return}buildGo(b,ci)}
 function userAction(cards,fn){if(UI.mode!=='link2'&&UI.mode!=='dev2')snap();CM=[];discard(V(),cards);fn();flushCoach();resetUI();afterAction()}
 const H={
  mode(el){if(cur()!==V())return;resetUI();UI.mode=el.dataset.m;render()},
@@ -721,7 +768,7 @@ const H={
   if(UI.mode==='build'&&!allBuilds(V(),p.hand[i]).some(b=>b.ok)){const r=buildWhy(V(),p.hand[i]);UI.note=`"${cardLabel(p.hand[i])}" can't build anything now. ${r.join(' ')}`;render();return}
   UI.note='';UI.card=i;render()},
  doBuildAt(el){const o=UI.atTown&&UI.atTown.opts[+el.dataset.k];if(o)startBuild(o.b,o.ci)},
- doSlot(el){const sp=UI.slotPick;if(!sp)return;const s=+el.dataset.s;if(!sp.b.alts.includes(s))return;userAction([sp.ci],()=>execBuild(V(),{...sp.b,slot:s}))},
+ doSlot(el){const sp=UI.slotPick;if(!sp)return;const s=+el.dataset.s;if(!sp.b.alts.includes(s))return;buildGo({...sp.b,slot:s},sp.ci)},
  clearSlot(){UI.slotPick=null;render()},
  clearAt(){UI.atTown=null;UI.note='';render()},
  doBuild(el){const b=UI.opts[+el.dataset.k];if(b)startBuild(b,UI.card)},
@@ -731,10 +778,16 @@ const H={
  chooseBeer(el){const bp=UI.beerPick;if(!bp)return;const o=bp.alts[+el.dataset.k];UI.beerPick=null;if(bp.kind==='link2')userAction([],()=>execLink2(V(),{...bp.e,br:o.br}));else sellNow({...bp.e,m:o.m,bp:{ok:true,merch:o.merch,takes:o.takes}})},
  clearBeer(){UI.beerPick=null;render()},
  finishLink(){resetUI();afterAction()},
- doDevelop(el){const e=UI.opts[+el.dataset.k];if(e)firstDevelop(e)},
- doDev2(el){const e=UI.opts[+el.dataset.k];if(e)userAction([],()=>execDevelop(V(),e))},
+ doDevelop(el){const e=UI.opts[+el.dataset.k];if(e)devGo(e,firstDevelop)},
+ doDev2(el){const e=UI.opts[+el.dataset.k];if(e)devGo(e,e2=>userAction([],()=>execDevelop(V(),e2)))},
  finishDev(){resetUI();afterAction()},
- doSell(el){const e=UI.opts[+el.dataset.k];if(!e)return;const alts=sellBeerAlts(V(),e.t,e.m);if(alts.length>1){UI.beerPick={kind:'sell',e,alts};render();return}sellNow(e)},
+ doSell(el){const e=UI.opts[+el.dataset.k];if(!e)return;const need=e.t.def.beer||0;if(!need){sellNow(e);return}
+  chooseSources([{kind:'beer',need,starts:[e.t.town],m:e.m,title:'Sell',ask:`Which beer for selling the ${lower(e.t.ind)} in ${TOWNS[e.t.town].n} to ${MERCH[e.m].n}?${need>1?' Each barrel can come from a different source.':''}`}],pk=>{const bp={ok:true,merch:pk[0].includes('m'),takes:planPicks('beer',pk[0],need).takes};sellNow({...e,bp})})},
+ pickSrc(el){const st=UI.src;if(!st)return;const v=el.dataset.id,id=v==='m'?'m':+v;if(!srcOpts(st.reqs[st.i],st.picks[st.i]).some(o=>o.id===id))return;st.picks[st.i].push(id);advanceSrc()},
+ cancelSrc(){UI.src=null;render()},
+ shortTile(el){const sf=S.shortfalls&&S.shortfalls[0];if(!sf||sf.pi!==V())return;const t=S.tiles.find(x=>x.id===+el.dataset.id);if(!t||t.owner!==sf.pi||shortGain(t)<=0)return;sf.need-=removeForShort(sf.pi,t);
+  if(sf.need<=0){S.players[sf.pi].money+=-sf.need;S.shortfalls.shift()}else if(!shortTiles(sf.pi).length){loseVp(sf.pi,sf.need);S.shortfalls.shift()}
+  if(!S.shortfalls.length)finishRound();if(typeof ONLINE!=='undefined'&&ONLINE&&window.NET)NET.push();render();maybeBot()},
  finishSell(){resetUI();afterAction()},
  scoutGo(){if(UI.scout.length!==3)return;const c=[...UI.scout];userAction(c,()=>execScout(V()))},
  setSetting(el){setSetting(el.dataset.v)},
