@@ -57,6 +57,11 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Code split into separate files (`data.js`, `engine.js`, `net.js`, `style.css`) to make contributing easier.
 
 ### Fixed
+- **Negative income shortfall (rulebook p.6).** If you can't pay negative income, you now remove your own industry tiles for half their cost (rounded down), stopping once it's covered and keeping any extra; only what's still unpaid costs VP. People choose which tiles (play waits for them, online too); bots choose automatically.
+- **VP can't go below 0** when losing points to a shortfall.
+- **You choose which ironworks your iron comes from** when building or developing (any ironworks, not just yours).
+- **You choose between equally close coal mines** for builds and rails.
+- **You choose each beer for a sale**, including whether to use the merchant's barrel, so 2-beer sales can draw from different breweries.
 - **Choosing which merchant to sell to.** A good connected to more than one buyer now lists every merchant (with its beer bonus), instead of only the one with the most beer. Selling pottery from Coventry can go to Oxford or Gloucester.
 - The game code and invite link now always sit at the bottom of the left column, and the page itself is never cached, so updates show up straight away.
 - **Gloucester's free develop** now lets you choose which tile to remove (or skip it), instead of picking automatically. Bots still choose for themselves.
