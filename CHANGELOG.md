@@ -56,6 +56,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Code split into separate files (`data.js`, `engine.js`, `net.js`, `style.css`) to make contributing easier.
 
 ### Fixed
+- The game code and invite link now always sit at the bottom of the left column, and the page itself is never cached, so updates show up straight away.
 - **Gloucester's free develop** now lets you choose which tile to remove (or skip it), instead of picking automatically. Bots still choose for themselves.
 - **Lightbulb rule**: pottery I and III can't be developed, including by Gloucester's free develop.
 - **Rail-only tiles**: brewery IV and pottery V can't be built in the canal era.

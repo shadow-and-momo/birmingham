@@ -16,6 +16,7 @@ const fb=initializeApp(firebaseConfig),auth=getAuth(fb),db=getFirestore(fb);
 // Local testing only: add ?emu=1 when running the Firebase emulators on localhost.
 if(['localhost','127.0.0.1'].includes(location.hostname)&&new URLSearchParams(location.search).has('emu')){connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});connectFirestoreEmulator(db,'127.0.0.1',8080)}
 const $L=document.getElementById('lobby'),$W=document.querySelector('.wrap'),$net=document.getElementById('net');
+{const nb=document.querySelector('.left .newgame');if($net&&nb&&nb.nextElementSibling!==$net)nb.after($net)}
 let uid=null,code=null,unsub=null,G=null,mySeat=-1,localVersion=0,saving=false,dirty=false,forceNext=false,lobbyErr='';
 const e=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const getName=()=>{try{return localStorage.getItem('bb-name')||''}catch(x){return''}};
