@@ -214,8 +214,9 @@ function afterAction(){LAST_ACTOR=cur();const actor=cur();S.actionsLeft--;const 
 function endTurn(){const p=S.players[cur()];p.hand.forEach(c=>delete c.fresh);while(p.hand.length<HAND&&S.deck.length){const c=S.deck.pop();c.fresh=true;p.hand.push(c)}S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}
 function startTurn(){const p=S.players[cur()];S.turnSerial++;if(isHuman(cur())&&p.hand.length)S.myTurns[cur()]++;S.actionsLeft=(S.era==='canal'&&S.round===1)?1:2;
  if(p.hand.length===0){S.turnIdx++;if(S.turnIdx>=S.order.length)endRound();else startTurn()}}
-function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money,pi=S.players.indexOf(p);p.money=0;if(isHuman(pi)&&!SEARCHING&&shortTiles(pi).length)(S.shortfalls=S.shortfalls||[]).push({pi,need:short});else settleShortAuto(pi,short)}});
+function endRound(){const last=S.era==='rail'&&S.deck.length===0&&S.players.every(p=>p.hand.length===0);
  if(!last)log(`Round ${S.round} over. Income paid: ${S.players.map((p,i)=>`${solo(i)?'you':p.name} £${incOf(p)}`).join(', ')}.`);
+ if(!last)S.players.forEach(p=>{p.money+=incOf(p);if(p.money<0){const short=-p.money,pi=S.players.indexOf(p);p.money=0;if(isHuman(pi)&&!SEARCHING&&shortTiles(pi).length)(S.shortfalls=S.shortfalls||[]).push({pi,need:short});else settleShortAuto(pi,short)}});
  if(S.shortfalls&&S.shortfalls.length){S.turnIdx=S.order.length-1;return}
  finishRound()}
 function finishRound(){S.shortfalls=null;
@@ -439,6 +440,36 @@ function mapSVG(){const era=S.era;let s=`<svg viewBox="0 0 400 600" role="img" a
     else if(SELLABLE.includes(tile.ind)&&tile.def.beer)s+=`<circle cx="${x+T-1}" cy="${y+1}" r="5" class="beerneed"/><text x="${x+T-1}" y="${y+3.4}" class="badge-t beerneed-t">${tile.def.beer}</text>`;s+=`</g>`}});
   s+=`<rect x="${t.x-bw/2}" y="${t.y+T+2}" width="${bw}" height="11" rx="1.5" class="banner"/><text x="${t.x}" y="${t.y+T+10.2}" class="tname">${name}</text></g>`}
  return s+`</svg>`}
+/* ---------- Progress track: everyone's VP (hex) and income (coin) on one 0-99 rail ---------- */
+var TRACK_OPEN=(()=>{try{return localStorage.getItem('bb-track')==='open'}catch(x){return false}})();
+function ensureTrack(){if(document.getElementById('track')||typeof document.createElement!=='function')return;const m=document.getElementById('map');if(!m||!m.parentNode)return;
+ const row=document.createElement('div');row.className='boardrow';row.id='boardrow';m.parentNode.insertBefore(row,m);
+ const t=document.createElement('div');t.className='trackbox';t.id='track';row.appendChild(t);
+ const wrap=document.createElement('div');wrap.className='mapwrap';row.appendChild(wrap);
+ const btn=document.createElement('button');btn.type='button';btn.className='trackbtn';btn.id='tracktab';btn.dataset.act='toggleTrack';
+ btn.innerHTML='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="6" y="1" width="4" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><path d="M8 3.6l1.4.8v1.6L8 6.8l-1.4-.8V4.4z" fill="currentColor"/></svg>';
+ wrap.appendChild(btn);wrap.appendChild(m)}
+function syncTrackTab(){const row=document.getElementById('boardrow'),tab=document.getElementById('tracktab');if(!row||!tab||!row.classList)return;row.classList.toggle('track-open',TRACK_OPEN);tab.classList.toggle('on',TRACK_OPEN);tab.setAttribute('aria-expanded',TRACK_OPEN?'true':'false');const t=TRACK_OPEN?'Hide the VP and income track':'Show the VP and income track';tab.title=t;tab.setAttribute('aria-label',t)}
+function trackSVG(){const KEY=20,TH=600,H=TH+KEY,PAD=10,st=(TH-2*PAD)/100,Y=v=>TH-PAD-(v+.5)*st,X0=16,W=44,R=4.4;
+ const money=l=>l<0?'−£'+(-l):'£'+l;
+ let s=`<svg viewBox="0 0 64 ${H}" role="img" aria-label="Progress track: VP and income for every player"><rect x="${X0-2}" y="${PAD-3}" width="${W+4}" height="${TH-2*PAD+6}" rx="5" fill="#1d1a18"/>`;
+ let k=0;for(let L=-10;L<=30;L++){const sp=[];for(let v=0;v<=99;v++)if(lvl(v)===L)sp.push(v);if(!sp.length)continue;const y1=TH-PAD-(sp[sp.length-1]+1)*st,y2=TH-PAD-sp[0]*st,neg=L<0;
+  const fill=neg?(k%2?'#4a2c27':'#5a352e'):(k%2?'#2B2724':'#4a423a');k++;
+  s+=`<rect x="${X0}" y="${y1}" width="${W}" height="${y2-y1}" fill="${fill}"/>`;
+  const fs=Math.min(9,(y2-y1)*.82);s+=`<text x="${X0+W-3}" y="${(y1+y2)/2+fs*.36}" text-anchor="end" font-size="${fs}" font-family="Oswald,sans-serif" font-weight="600" fill="#F4EBD5" opacity=".38">${money(L)}</text>`}
+ for(let i=0;i<=99;i+=10){const y=TH-PAD-i*st;s+=`<text x="${X0-4}" y="${y-st/2+2.5}" text-anchor="end" font-size="7" font-family="Oswald,sans-serif" fill="currentColor" opacity=".8">${i}</text>`}
+ const hex=(x,y,c)=>`<polygon points="${x},${y-R} ${x+R*.87},${y-R/2} ${x+R*.87},${y+R/2} ${x},${y+R} ${x-R*.87},${y+R/2} ${x-R*.87},${y-R/2}" fill="${c}" stroke="#F4EBD5" stroke-width="1"/>`;
+ // every marker the same size; spread sideways (then a little up/down) so none overlap
+ const ms=[];S.players.forEach((p,i)=>{ms.push({i,t:'v',p,v:Math.max(0,p.vp)%100});ms.push({i,t:'i',p,v:p.pos})});
+ ms.sort((a,b)=>a.v-b.v||a.i-b.i||(a.t==='v'?-1:1));
+ const placed=[],cols=[0,1,2,3].map(c=>X0+6+c*9.8),D=2*R+.8;
+ ms.forEach(m=>{const y0=Y(m.v);let spot=null;
+  for(const dy of [0,-1.25*st,1.25*st,-2.5*st,2.5*st]){for(const x of cols){const y=y0+dy;if(placed.every(q=>Math.hypot(q.x-x,q.y-y)>=D)){spot={x,y};break}}if(spot)break}
+  if(!spot)spot={x:cols[cols.length-1],y:y0};placed.push(spot);const c=(S.colors&&S.colors[m.i])||'#888';
+  const tip=m.t==='v'?`${m.p.vp} VP${m.p.vp>=100?' (track loops past 99)':''}`:`space ${m.p.pos}, ${money(lvl(m.p.pos))} a round`;
+  s+=`<g><title>${esc(m.p.name)}: ${tip}</title>${m.t==='v'?hex(spot.x,spot.y,c):`<circle cx="${spot.x}" cy="${spot.y}" r="${R-.4}" fill="${c}" stroke="#F4EBD5" stroke-width="1"/>`}${m.t==='v'&&m.p.vp>=100?`<text x="${spot.x}" y="${spot.y+2}" text-anchor="middle" font-size="5" font-weight="700" fill="#fff">+</text>`:''}</g>`});
+ s+=`<g transform="translate(0 ${TH+KEY/2})" fill="currentColor" opacity=".85"><polygon points="12,-4 15.5,-2 15.5,2 12,4 8.5,2 8.5,-2"/><text x="18" y="2.6" font-size="7" font-family="Oswald,sans-serif">VP</text><circle cx="37" cy="0" r="3.6"/><text x="43" y="2.6" font-size="7" font-family="Oswald,sans-serif">£</text></g>`;
+ return s+'</svg>'}
 function legendHTML(){const sw=(c)=>`<svg viewBox="0 0 26 26" aria-hidden="true">${c}</svg>`;
  const ic=k=>`<span>${sw(icon(k,3,3,20,'licon'))}${IND[k].name}</span>`;
  return`<div class="lrow">${Object.keys(IND).map(ic).join('')}<span>${sw(icon('barrel',3,3,20,'beer'))}Merchant beer</span><span>${sw(`<circle cx="13" cy="13" r="9" fill="${RES_COL.coal}" stroke="#fff"/><text x="13" y="17" class="badge-t" style="font-size:11px">3</text>`)}Cubes left</span><span>${sw(`<circle cx="13" cy="13" r="9" class="beerneed" style="stroke-width:2"/><text x="13" y="17" class="badge-t beerneed-t" style="font-size:11px">1</text>`)}Beer needed to sell</span><span>${sw(`<circle cx="13" cy="13" r="9" fill="var(--brass)"/><text x="13" y="17.5" class="badge-t" style="font-size:12px">★</text>`)}Scoring</span></div><div class="lrow"><span>${sw(`<rect x="2" y="2" width="22" height="22" rx="4" class="down o0" style="fill:var(--panel)"/>`+icon('coal',5,5,16,'o0'))}Face down</span>
@@ -637,9 +668,10 @@ function railCoal(e,title,fn){chooseSources([{kind:'coal',need:1,starts:[e.l.a,e
 function shortGain(t){return Math.floor((t.def.cost||0)/2)}
 function shortTiles(pi){return S.tiles.filter(t=>t.owner===pi&&shortGain(t)>0)}
 function loseVp(pi,amt){const p=S.players[pi];const l=Math.min(Math.max(0,p.vp),amt);p.vp-=l;p.lostVp=(p.lostVp||0)+l;log(`${p.name} couldn't cover £${amt} of negative income and lost ${l} VP${l<amt?" (VP can't go below 0)":''}.`)}
-function removeForShort(pi,t){S.tiles=S.tiles.filter(x=>x!==t);const g=shortGain(t);log(`${WHO(pi)} removed ${POSS(pi)} level ${t.def.l} ${lower(t.ind)} in ${TOWNS[t.town].n} for £${g} to cover negative income.`);return g}
-function settleShortAuto(pi,need){const val=t=>(t.flipped?t.def.vp*1.5+t.def.lk:t.def.vp*.4+(t.cubes||0)*.5)/shortGain(t);
- for(const t of shortTiles(pi).sort((a,b)=>val(a)-val(b))){if(need<=0)break;need-=removeForShort(pi,t)}
+function removeForShort(pi,t){S.tiles=S.tiles.filter(x=>x!==t);const g=shortGain(t);log(`${WHO(pi)} removed ${solo(pi)?'your':'their'} level ${t.def.l} ${lower(t.ind)} in ${TOWNS[t.town].n} for £${g} to cover negative income.`);return g}
+function settleShortAuto(pi,need){const val=t=>t.flipped?t.def.vp*1.5+t.def.lk+1:t.def.vp*.6+(t.cubes||0)*.4+(SELLABLE.includes(t.ind)?1:0);
+ while(need>0){const ts=shortTiles(pi);if(!ts.length)break;const cover=ts.filter(t=>shortGain(t)>=need).sort((a,b)=>val(a)-val(b)||shortGain(a)-shortGain(b));
+  const t=cover.length?cover[0]:ts.sort((a,b)=>val(a)/shortGain(a)-val(b)/shortGain(b))[0];need-=removeForShort(pi,t)}
  if(need<0)S.players[pi].money+=-need;else if(need>0)loseVp(pi,need)}
 function settleAllShortAuto(){if(!S.shortfalls)return;while(S.shortfalls.length){const s=S.shortfalls.shift();settleShortAuto(s.pi,s.need)}S.shortfalls=null;finishRound()}
 function shortHTML(sf){const ts=shortTiles(sf.pi).sort((a,b)=>shortGain(b)-shortGain(a));
@@ -720,7 +752,7 @@ function soundFromLog(){if(!S||!S.log)return;const n=S.log.length;if(LAST_LOG_LE
 function turnChime(){if(!S||S.over||S.modal)return;if(isHuman(cur())&&cur()===V()&&S.turnSerial!==LAST_CHIME){LAST_CHIME=S.turnSerial;sfx('turn')}}
 function render(){applyColours();try{soundFromLog();turnChime()}catch(x){}renderCore();skinDOM(document.querySelector('.wrap'));skinDOM(document.getElementById('modal'))}
 function renderCore(){const ss=document.getElementById('styleSel');if(ss&&!(document.activeElement&&ss.contains(document.activeElement)))ss.innerHTML=`<div class="setgrid"><label>Sound effects<select data-chg="sfx" aria-label="Sound effects"><option value="on"${SOUND.sfx?' selected':''}>On</option><option value="off"${SOUND.sfx?'':' selected'}>Off</option></select></label><label>Setting<select data-chg="setting" aria-label="Setting"><option value="classic"${SETTING==='classic'?' selected':''}>Classic</option><option value="space"${SETTING==='space'?' selected':''}>Space</option></select></label><label>Map style<select data-chg="theme" aria-label="Map style">${THEMES.map(([k,n])=>`<option value="${k}"${THEME===k?' selected':''}>${n}</option>`).join('')}</select></label></div>`;if(typeof tipKey!=='undefined'&&tipKey&&tipKey.startsWith('c:'))hideTip();if(!S.over&&!S.modal&&isHuman(cur())&&cur()===V()&&S.coachTurn!==S.turnSerial){S.coachTurn=S.turnSerial;const pend=S.pending;S.pending=[];composeCoach(pend)}
- nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
+ nudgeCheck();renderNudge();renderStatus();renderControls();renderUndo();$('map').innerHTML=mapSVG();ensureTrack();syncTrackTab();{const tk=$('track');if(tk){tk.innerHTML=TRACK_OPEN?trackSVG():'';if(tk.dataset)tk.dataset.theme=THEME}}$('legend').innerHTML=$('legend2').innerHTML=legendHTML();
  $('latest').innerHTML=S.log.slice(-4).reverse().map(t=>`<li>${esc(t)}</li>`).join('');renderFullLog();
  {const cb=$('coach');if(coachOn()){cb.hidden=false;cb.innerHTML=`<span class="who">Coach</span><br>${esc(S.coach).replace(/\n/g,'<br>')}`}else{cb.hidden=true;cb.innerHTML=''}}
  if(S.modal&&S.modal.handoff!==undefined){$('modal').innerHTML=`<div class="modal solid"><div class="box" role="dialog" aria-modal="true"><h2>${esc(WHO(S.modal.handoff))}, you're up</h2><p>Pass the device to ${esc(WHO(S.modal.handoff))}. Your hand stays hidden until you tap below.</p><div class="row"><button type="button" class="primary" data-act="takeTurn">Show my hand</button></div></div></div>`;return}
@@ -798,6 +830,7 @@ const H={
  openChart(){CHART.open=true;hideTip();renderChart()},
  closeChart(){CHART.open=false;renderChart()},
  chartTab(el){CHART.tab=el.dataset.t;renderChart()},
+ toggleTrack(){TRACK_OPEN=!TRACK_OPEN;try{localStorage.setItem('bb-track',TRACK_OPEN?'open':'closed')}catch(x){}render()},
  chartSort(el){CHART.sort=el.dataset.s;renderChart()},
  viewBoard(){if(typeof ONLINE!=='undefined'&&ONLINE&&S.eraNote)DISMISSED.add(S.eraNote.key);S.modal=null;render()},
  showResults(){S.modal={final:true};render()},

@@ -5,6 +5,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 ## Unreleased
 
 ### Added
+- **Progress track.** A rail beside the map showing every player's VP (hex) and income (coin) on one shared 0–99 track, like the board. Each income level is a shaded band with its £ printed faintly, so you can read income at a glance. Markers are all the same size and spread out when players share or neighbour a space; hover one for the exact figures. A tiny VP/£ key sits at the bottom, and the rail follows each map style. It starts hidden: a small button in the top-left corner of the map opens and closes it, and each device remembers your choice. Not shown on phones.
 - **Second rail points.** When choosing the beer for a second rail, the screen shows what the rail is worth if the era ended now, on each option, including when using a brewery's last beer flips it and adds link points.
 - **Canal era score screen.** "Halfway there": each player's canal-era points as a bar split into canal links and face-up tiles (tap a segment for every link and tile), plus what changes now: canals removed, your level 1 tiles that are removed (named), merchant beer refilled, and a new hand with your income.
 - **Show all points** on the final standings. A bar for each player split into canal links, canal tiles, rail links, rail tiles (and merchant bonuses), in the board's colours. Tap a segment to list every link and tile in it with its points.
@@ -35,6 +36,7 @@ All notable changes to the game, newest first. Each pull request should add its 
 - Automated tests for full 2-, 3- and 4-player games, the card deck and the player mats.
 
 ### Changed
+- Warrington's merchant sits a little lower so it clears the track button.
 - **Player panels have depth.** A soft drop shadow, with the current player's panel lifted slightly higher.
 - **Round number** beside Your actions: "Round 3 of 8 | 1 action left".
 - **Spending on each player panel.** "spent £12" sits on the cash line of every panel (whoever spends least goes first next round), replacing the separate Spent this round line.
