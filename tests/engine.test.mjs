@@ -150,3 +150,15 @@ test('a 2-beer sale lets the player pick each barrel, including the merchant bar
   assert.equal(run("srcOpts({kind:'beer',starts:['coventry'],m:'oxford'},[]).map(o=>o.id).join()"), 'm,830,831');
   assert.equal(run("srcOpts({kind:'beer',starts:['coventry'],m:'oxford'},['m']).map(o=>o.id).join()"), '830,831', 'merchant barrel only once');
 });
+
+test('bots cover a small shortfall with a cheap tile, not their best one', () => {
+  const ctx = loadEngine();
+  const run = code => vm.runInContext(code, ctx);
+  run(`newGame(2,1);S.tiles=[];S.players[1].money=0;S.players[1].vp=5;
+    S.tiles.push({id:840,owner:1,ind:'pottery',def:TILES.pottery[0],town:'stoke',slot:1,cubes:0,flipped:false});
+    S.tiles.push({id:841,owner:1,ind:'coal',def:TILES.coal[1],town:'coventry',slot:1,cubes:2,flipped:false});
+    settleShortAuto(1,3);`);
+  assert.equal(run('S.tiles.map(t=>t.id).join()'), '840', 'keeps the pottery');
+  assert.equal(run('S.players[1].money'), 0);
+  assert.equal(run('S.players[1].vp'), 5);
+});

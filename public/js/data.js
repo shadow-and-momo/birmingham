@@ -25,7 +25,7 @@ const TOWNS={
  worcester:{n:'Worcester',x:118,y:540,slots:[['cotton'],['cotton']]}
 };
 const MERCH={
- warrington:{n:'Warrington',x:42,y:42,accepts:['cotton','goods'],beer:2,bonus:{type:'money',v:5}},
+ warrington:{n:'Warrington',x:42,y:54,accepts:['cotton','goods'],beer:2,bonus:{type:'money',v:5}},
  nottingham:{n:'Nottingham',x:376,y:272,accepts:['cotton','goods','pottery'],beer:2,bonus:{type:'vp',v:3}},
  shrewsbury:{n:'Shrewsbury',x:30,y:400,accepts:['cotton','pottery'],beer:1,bonus:{type:'vp',v:4}},
  gloucester:{n:'Gloucester',x:205,y:560,accepts:['cotton','goods'],beer:2,bonus:{type:'develop',v:1}},
