@@ -1,5 +1,6 @@
 {
   "name": "birmingham",
+  "version": "1.0.0",
   "private": true,
   "description": "Private online version of an industrial-era network-building board game, for friends.",
   "scripts": {
