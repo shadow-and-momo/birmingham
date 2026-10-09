@@ -4,6 +4,12 @@ All notable changes to the game, newest first. Each pull request should add its 
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.0.0 - 2026-10-07
+
+First full release: every rule checked against the 2018 rulebook, bots, coach, online play with friends, and the scoring and track screens.
+
 ### Added
 - **Progress track.** A rail beside the map showing every player's VP (hex) and income (coin) on one shared 0–99 track, like the board. Each income level is a shaded band with its £ printed faintly, so you can read income at a glance. Markers are all the same size and spread out when players share or neighbour a space; hover one for the exact figures. A tiny VP/£ key sits at the bottom, and the rail follows each map style. It starts hidden: a small button in the top-left corner of the map opens and closes it, and each device remembers your choice. Not shown on phones.
 - **Second rail points.** When choosing the beer for a second rail, the screen shows what the rail is worth if the era ended now, on each option, including when using a brewery's last beer flips it and adds link points.
